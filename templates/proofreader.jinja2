@@ -1,0 +1,61 @@
+<!doctype html>
+
+<style>
+    body {
+        font-family: roboto, sans-serif;
+    }
+
+    .results {
+        white-space: pre-wrap;
+        font-family: serif;
+    }
+
+    .results .error {
+        text-decoration: red underline wavy;
+    }
+
+    form {
+        width: 100%;
+    }
+
+    textarea {
+        width: 100%;
+        border-radius: 5px;
+        font-family: serif;
+        border: 1px solid black;
+        border-radius: 0;
+        margin-bottom: 1rem;
+    }
+
+    input[type=submit] {
+        width: 100%;
+    }
+</style>
+
+{% include "side-bar.jinja2" %}
+
+<div class=page-content>
+
+    <h1>{{ lang.proofreader }}</h1>
+
+    <form method=post action="{{ path }}/{{ lang.id }}">
+
+        <textarea name="text" rows=10>{{ input }}</textarea><br>
+
+        <input type=submit value="{{ lang.check }}">
+
+    </form>
+
+    {% if no_errors is true %}
+    <p>{{ lang.no_errors }}</p>
+    {% else %}
+        {% if result is defined %}
+
+        <p>{{ lang.errors_marked }}</p>
+
+        <div class=results>{{ result | safe }}</div>
+
+        {% endif %}
+    {% endif %}
+
+</div>

@@ -1,0 +1,112 @@
+body {
+    display: flex;
+    flex-direction: row;
+    margin: 0;
+    font-family: roboto,sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+.page-content {
+    margin-left: 1rem;
+    margin-right: 1rem;
+    flex: 1;
+}
+
+aside.book-menu {
+    flex: 0 0 16rem;
+    font-size: .875rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    width: 16rem;
+    height: 100vh;
+}
+
+.book-menu > div {
+    top: 0;
+    bottom: 0;
+    padding: 1rem;
+    width: 16rem;
+    border-right: 1px solid #4a671e;
+    display: flex;
+    flex-direction: column;
+}
+
+.filler {
+    flex: 1;
+}
+
+.language-selection {
+    text-align: center;
+}
+
+@media screen and (min-width: 900px) {
+    .book-menu > div {
+        position: fixed;
+    }
+}
+
+.book-menu .site-logo {
+    font-size: 140px !important;
+    text-align: center;
+}
+
+.book-menu .book-brand {
+    text-align: center;
+    font-weight: 400;
+    margin-top: 0;
+}
+
+.book-menu a {
+    color: inherit;
+    word-wrap: break-word;
+    text-decoration: none;
+}
+
+.book-menu ul a:hover {
+    opacity: .5;
+}
+
+.book-menu ul {
+    padding: 0;
+    margin: 0;
+    list-style: none;
+}
+
+.book-menu ul ul {
+    padding-inline-start: 1rem;
+}
+
+.book-menu ul li {
+    margin: 1em 0;
+    position: relative;
+}
+
+@media screen and (min-width: 1200px) {
+    .page-content {
+        max-width: 1000px;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+}
+
+details > summary {
+    cursor: pointer !important;
+    line-height: 1.6;
+}
+
+table {
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+
+table tr th, table tr td {
+    padding: .5rem 1rem;
+    border: 1px solid #e9ecef;
+}
+
+table tr:nth-child(2n) {
+    background: #f8f9fa;
+}

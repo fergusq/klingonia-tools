@@ -1,0 +1,46 @@
+<!doctype html>
+
+<link rel=stylesheet href="/style.css">
+
+<style>
+    .brand {
+        margin-top: 1rem;
+        margin-bottom: 2rem;
+        text-align: center;
+    }
+
+    .links {
+        display: flex;
+        justify-content: space-around;
+    }
+
+    .link-container {
+        flex: 1;
+        text-align: center;
+    }
+
+    .tool-link {
+        color: inherit;
+        text-decoration: none;
+        padding: .5rem 1rem;
+        border: 1px solid #e9ecef;
+        border-radius: 0.25rem;
+        font-size: 2rem;;
+    }
+
+    .tool-link:hover {
+        opacity: .5;
+    }
+</style>
+
+<div class=page-content>
+    <div class=brand>
+        <img src="/klingon-logo-vihree.svg" alt="Klingon empire logo" width="130px">
+        <h1>Klingonia</h1>
+    </div>
+    <div class=links>
+        <div class=link-container><a href="/dictionary/{{lang.id}}" class=tool-link>{{ lang.dictionary }}</a></div>
+        <div class=link-container><a href="/proofread/{{lang.id}}" class=tool-link>{{ lang.proofreader }}</a></div>
+        <div class=link-container><a href="https://klingon-corpus.herokuapp.com/{{lang.id}}" class=tool-link>{{ lang.corpus }}</a></div>
+    </div>
+</div>

@@ -1,0 +1,27 @@
+<link rel=stylesheet href="/style.css">
+
+<aside class="book-menu">
+    <div>
+        <div class="site-logo">
+            <a href="/index/{{ lang.id }}">
+                <img src="/klingon-logo-vihree.svg" alt="Klingon empire logo" width="130px">
+            </a>
+        </div>
+        <h2 class="book-brand">
+            <a href="/index/{{ lang.id }}">
+                <span>Klingonia</span>
+            </a>
+            <br>
+        </h2>
+        <ul>
+            <li><a href="/dictionary/{{ lang.id }}" {% if path=="/dictionary" %}style="color:#0055bb;"{% endif %}>{{ lang.dictionary }}</a></li>
+            <li><a href="/proofread/{{ lang.id }}" {% if path=="/proofread" %}style="color:#0055bb;"{% endif %}>{{ lang.proofreader }}</a></li>
+            <li><a href="https://klingon-corpus.herokuapp.com/{{ lang.id }}">{{ lang.corpus }}</a></li>
+        </ul>
+        <div class=filler></div>
+        <div class=language-selection>
+            <a href="{{ path }}/fi">FI</a> ·
+            <a href="{{ path }}/en">EN</a>
+        </div>
+    </div> 
+</aside>

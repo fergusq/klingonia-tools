@@ -1,0 +1,208 @@
+
+<!doctype html>
+
+<style>
+    body {
+        font-family: roboto, sans-serif;
+    }
+
+    details.dictionary-info {
+        margin-bottom: 1rem;
+        padding: 1rem;
+        border: 1px solid #e9ecef;
+        border-radius: 0.25rem;
+    }
+
+    details p:last-child {
+        margin-bottom: 0;
+    }
+
+    form {
+        width: 100%;
+        display: flex;
+        margin-bottom: 1rem;
+    }
+
+    form > input:first-child {
+        flex: 1;
+        border: 1px solid black;
+        border-radius: 0;
+        margin-right: 1rem;
+    }
+
+    table.results {
+        width: 100%;
+    }
+</style>
+
+{% include "side-bar.jinja2" %}
+
+<div class=page-content>
+
+    <h1>{{ lang.dictionary }}</h1>
+
+    <details class="dictionary-info">
+        <summary>{{ lang.dictionary_info }}</summary>
+
+        <p>Based on the <a href="https://github.com/De7vID/klingon-assistant-data">boQwI' dictionary data</a>.</p>
+
+        <p>Example queries:</p>
+
+        <table>
+            <tr>
+                <th>Hegh</th>
+                <td>Searches for entries that contain the Klingon word "Hegh" in their title</td>
+            </tr>
+            <tr>
+                <th>kill</th>
+                <td>Searches for entries that contain the English word "kill" in their definition or search tags</td>
+            </tr>
+            <tr>
+                <th>tlh:"'e' yI"</th>
+                <td>Searches for entries that contain the Klingon text "'e' yI" with a space (complex imperative sentences)</td>
+            </tr>
+            <tr>
+                <th>pos:name</th>
+                <td>Searches for entries that have the part of speech tag "name"</td>
+            </tr>
+            <tr>
+                <th>if pos:suff</th>
+                <td>Searches for "if" in entries that have the part of speech tag "suff"</td>
+            </tr>
+            <tr>
+                <th>pos:v pos:deriv</th>
+                <td>Searches for verb entries that have the part of speech tag "deriv"</td>
+            </tr>
+            <tr>
+                <th>components:-pu' components:-mey</th>
+                <td>Searches for entries that have both -pu' and -mey in their components field (sentences that contain both suffixes)</td>
+            </tr>
+            <tr>
+                <th>components:-pu' OR components:-mey</th>
+                <td>Searches for entries that have either -pu' or -mey (or both) in their components field</td>
+            </tr>
+        </table>
+
+        <p>Available operators:</p>
+
+        <table>
+            <tr>
+                <th>tlh:</th>
+                <td>Entry name</td>
+            </tr>
+            <tr>
+                <th>en:</th>
+                <td>English definition and search tags</td>
+            </tr>
+            <tr>
+                <th>de:</th>
+                <td>German definition and search tags</td>
+            </tr>
+            <tr>
+                <th>pt:</th>
+                <td>Portuguese definition and search tags</td>
+            </tr>
+            <tr>
+                <th>fi:</th>
+                <td>Finnish definition and search tags</td>
+            </tr>
+            <tr>
+                <th>sv:</th>
+                <td>Swedish definition and search tags</td>
+            </tr>
+            <tr>
+                <th>pos:</th>
+                <td>Contained in the part of speech tags</td>
+            </tr>
+            <tr>
+                <th>notes:</th>
+                <td>English notes</td>
+            </tr>
+            <tr>
+                <th>ex:</th>
+                <td>English examples</td>
+            </tr>
+            <tr>
+                <th>components:</th>
+                <td>Contained in the components list</td>
+            </tr>
+            <tr>
+                <th>synonym:</th>
+                <td>Contained in the synonym list</td>
+            </tr>
+            <tr>
+                <th>antonym:</th>
+                <td>Contained in the antonym list</td>
+            </tr>
+            <tr>
+                <th>see:</th>
+                <td>Contained in the see also list</td>
+            </tr>
+            <tr>
+                <th>AND</th>
+                <td>Require both conditions to be true (default)</td>
+            </tr>
+            <tr>
+                <th>OR</th>
+                <td>Require one of the conditions to be true</td>
+            </tr>
+        </table>
+    </details>
+
+    <form method=get action="{{ path }}/{{ lang.id }}">
+        <input type=text name=q value="{{ input }}" autocomplete=off>
+        <input type=submit value="{{ lang.search }}">
+    </form>
+
+    <table class=results>
+        {% for entry in result %}
+
+        <tr>
+            <th>{{ entry.name }}</th>
+            <td>
+                <details>
+                    <summary>
+                        {% if entry.homonym is defined %}{{ entry.homonym }}.{% endif %}
+                        <i>({{ lang[entry.pos] }})</i>
+                        {{ entry.definition | safe }}
+                    </summary>
+        
+                    {% if entry.inflections is defined %}
+                    <p>[{{ entry.inflections | safe }}]</p>
+                    {% endif %}
+        
+                    {% if entry.notes is defined %}
+                    <p>{{ entry.notes | safe }}</p>
+                    {% endif %}
+        
+                    {% if entry.components is defined %}
+                    <p><b>{{lang.components}}:</b> {{ entry.components | safe }}</p>
+                    {% endif %}
+        
+                    {% if entry.synonyms is defined %}
+                    <p><b>{{lang.synonyms}}:</b> {{ entry.synonyms | safe }}</p>
+                    {% endif %}
+        
+                    {% if entry.antonyms is defined %}
+                    <p><b>{{lang.antonyms}}:</b> {{ entry.antonyms | safe }}</p>
+                    {% endif %}
+        
+                    {% if entry.see_also is defined %}
+                    <p><b>{{lang.see_also}}:</b> {{ entry.see_also | safe }}</p>
+                    {% endif %}
+        
+                    {% if entry.examples is defined %}
+                    <p><b>{{lang.examples}}:</b> {{ entry.examples | safe}}</p>
+                    {% endif %}
+        
+                    {% if entry.source is defined %}
+                    <p><b>{{lang.source}}:</b> {{ entry.source | safe}}</p>
+                    {% endif %}
+                </details>
+            </td>
+        </tr>
+
+        {% endfor %}
+    </table>
+
+</div>
