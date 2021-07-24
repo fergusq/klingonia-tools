@@ -1,12 +1,17 @@
 import re
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Set
 
 from aiohttp import web
 import aiohttp_jinja2
 import jinja2
 import yajwiz
+from yajwiz.boqwiz import BoqwizEntry
+
+import logging
 
 from . import locales
+
+logging.basicConfig(level=logging.INFO)
 
 routes = web.RouteTableDef()
 
@@ -61,30 +66,30 @@ def check_and_render(text: str):
 @routes.get('/dictionary/{lang}')
 @routes.get('/dictionary/{lang}/')
 @aiohttp_jinja2.template("dictionary.jinja2")
-async def get_dictionary(request):
+async def get_dictionary(request: web.Request):
     lang = request.match_info.get("lang", "en")
     query = request.query.get("q", "")
-    return {"lang": locales.locale_map[lang], "path": "/dictionary", "input": query, "result": dictionary_query(query, lang)}
+    return {"lang": locales.locale_map[lang], "path": "/dictionary", "input": query, "result": dictionary_query(query, lang), "boqwiz_version": dictionary.version}
 
-DICT = yajwiz.analyzer.data
+dictionary = yajwiz.load_dictionary()
 
-QUERY_OPERATORS: Dict[str, Callable[[dict, str], Any]] = {
-    "tlh": lambda entry, arg: re.search(fix_xifan(arg), entry["entry_name"]),
-    "notes": lambda entry, arg: re.search(arg, entry.get("notes", {}).get("en", "")),
-    "ex": lambda entry, arg: re.search(arg, entry.get("examples", {}).get("en", "")),
-    "pos": lambda entry, arg: set(arg.split(",")) < set(re.split(r"[:,]", entry["part_of_speech"])),
-    "antonym": lambda entry, arg: re.search(fix_xifan(arg), entry.get("antonyms", "")),
-    "synonym": lambda entry, arg: re.search(fix_xifan(arg), entry.get("synonyms", "")),
-    "components": lambda entry, arg: re.search(fix_xifan(arg), entry.get("components", "")),
-    "see": lambda entry, arg: re.search(fix_xifan(arg), entry.get("see_also", "")),
+QUERY_OPERATORS: Dict[str, Callable[[BoqwizEntry, str], Any]] = {
+    "tlh": lambda entry, arg: re.search(fix_xifan(arg), entry.name),
+    "notes": lambda entry, arg: re.search(arg, entry.notes.get("en", "")),
+    "ex": lambda entry, arg: re.search(arg, entry.examples.get("en", "")),
+    "pos": lambda entry, arg: set(arg.split(",")) < set(re.split(r"[:,]", entry.part_of_speech)),
+    "antonym": lambda entry, arg: re.search(fix_xifan(arg), entry.antonyms),
+    "synonym": lambda entry, arg: re.search(fix_xifan(arg), entry.synonyms),
+    "components": lambda entry, arg: re.search(fix_xifan(arg), entry.components),
+    "see": lambda entry, arg: re.search(fix_xifan(arg), entry.see_also),
 }
 
 def add_operators(language: str):
-    QUERY_OPERATORS[language] = lambda entry, arg: (re.search(arg, entry["definition"][language]) or arg in entry.get("search_tags", {}).get(language, []))
-    QUERY_OPERATORS[language+"notes"] = lambda entry, arg: re.search(arg, entry.get("notes", {}).get(language, ""))
-    QUERY_OPERATORS[language+"ex"] = lambda entry, arg: re.search(arg, entry.get("examples", {}).get(language, ""))
+    QUERY_OPERATORS[language] = lambda entry, arg: (re.search(arg, entry.definition[language]) or arg in entry.search_tags.get(language, []))
+    QUERY_OPERATORS[language+"notes"] = lambda entry, arg: re.search(arg, entry.notes.get(language, ""))
+    QUERY_OPERATORS[language+"ex"] = lambda entry, arg: re.search(arg, entry.examples.get(language, ""))
 
-for language in DICT["locales"]:
+for language in dictionary.locales:
     add_operators(language)
 
 def dictionary_query(query: str, lang: str):
@@ -117,18 +122,17 @@ def dictionary_query(query: str, lang: str):
         if analyses:
             parts += fix_analysis_parts(analyses, lang)
     
-    if parts:
-        included = set()
-        ans = []
-        for part in parts:
-            if part not in included:
-                included.add(part)
+    included = set()
+    ans = []
+    for part in parts:
+        if part not in included:
+            included.add(part)
 
-                ans.append(render_entry(DICT["qawHaq"][part], lang))
-            
-        return ans
+            ans.append(render_entry(dictionary.entries[part], lang))
     
-    return dsl_query(query, lang)
+    ans += dsl_query(query, lang, included)
+
+    return ans
 
 def fix_analysis_parts(analyses: List[yajwiz.analyzer.Analysis], lang: str):
     parts = []
@@ -141,7 +145,7 @@ def fix_analysis_parts(analyses: List[yajwiz.analyzer.Analysis], lang: str):
     parts.sort(key=lambda p: names.index(p[:p.index(":")]))
     return parts
 
-def dsl_query(query: str, lang: str):
+def dsl_query(query: str, lang: str, included: Set[str]):
     parts = [""]
     quote = False
     for i in range(len(query)):
@@ -161,8 +165,8 @@ def dsl_query(query: str, lang: str):
     
     ans = []
     query_function = parse_or(parts, lang)
-    for entry in DICT["qawHaq"].values():
-        if query_function(entry):
+    for entry_id, entry in dictionary.entries.items():
+        if entry_id not in included and query_function(entry):
             ans.append(render_entry(entry, lang))
     
     return ans
@@ -214,116 +218,113 @@ def parse_term(parts: List[str], lang: str):
             return lambda entry: False
     
     else:
-        def func(entry):
-            if fix_xifan(part) in entry["entry_name"]:
+        def func(entry: BoqwizEntry):
+            if fix_xifan(part) in entry.name:
                 return True
             
-            if part in entry.get("search_tags", {}).get(lang, []):
+            if any([tag.startswith(part) for tag in entry.search_tags.get(lang, [])]):
                 return True
             
-            if part in entry["definition"].get(lang, ""):
+            if part in entry.definition.get(lang, ""):
                 return True
             
             return False
         
         return func
 
-def render_entry(entry: dict, language: str) -> dict:
+def render_entry(entry: BoqwizEntry, language: str) -> dict:
     ans = {
-        "name": entry["entry_name"],
+        "name": entry.name,
         "pos": "unknown",
         "tags": [],
     }
-    pos = entry["part_of_speech"]
-    primary_pos = pos[:pos.index(":")] if ":" in pos else pos
-    extra = pos[pos.index(":")+1:].split(",") if ":" in pos else []
-    if primary_pos == "v":
-        if "is" in extra:
+    if entry.simple_pos == "v":
+        if "is" in entry.tags:
             ans["pos"] = "adjective"
         
-        elif "t_c" in extra:
+        elif "t_c" in entry.tags:
             ans["pos"] = "transitive verb"
         
-        elif "t" in extra:
+        elif "t" in entry.tags:
             ans["pos"] = "possibly transitive verb"
         
-        elif "i_c" in extra:
+        elif "i_c" in entry.tags:
             ans["pos"] = "intransitive verb"
         
-        elif "i" in extra:
+        elif "i" in entry.tags:
             ans["pos"] = "possibly intransitive verb"
         
-        elif "pref" in extra:
+        elif "pref" in entry.tags:
             ans["pos"] = "verb prefix"
         
-        elif "suff" in extra:
+        elif "suff" in entry.tags:
             ans["pos"] = "verb suffix"
         
         else:
             ans["pos"] = "verb"
     
-    elif primary_pos == "n":
-        if "suff" in extra:
+    elif entry.simple_pos == "n":
+        if "suff" in entry.tags:
             ans["pos"] = "noun suffix"
         
         else:
             ans["pos"] = "noun"
     
-    elif primary_pos == "ques":
+    elif entry.simple_pos == "ques":
         ans["pos"] = "question word"
     
-    elif primary_pos == "adv":
+    elif entry.simple_pos == "adv":
         ans["pos"] = "adverb"
     
-    elif primary_pos == "conj":
+    elif entry.simple_pos == "conj":
         ans["pos"] = "conjunction"
     
-    elif primary_pos == "excl":
+    elif entry.simple_pos == "excl":
         ans["pos"] = "exclamation"
     
-    elif primary_pos == "sen":
+    elif entry.simple_pos == "sen":
         ans["pos"] = "sentence"
     
-    if "slang" in extra:
+    if "slang" in entry.tags:
         ans["tags"].append("slang")
     
-    if "reg" in extra:
+    if "reg" in entry.tags:
         ans["tags"].append("regional")
     
-    if "archaic" in extra:
+    if "archaic" in entry.tags:
         ans["tags"].append("archaic")
     
-    if "hyp" in extra:
+    if "hyp" in entry.tags:
         ans["tags"].append("hypothetical")
     
     for i in range(1, 10):
-        if str(i) in extra:
+        if str(i) in entry.tags:
             ans["homonym"] = i
 
-    ans["definition"] = fix_links(get_unless_translated(entry["definition"], language))
-    if "notes" in entry:
-        ans["notes"] = fix_links(get_unless_translated(entry["notes"], language))
+    ans["definition"] = fix_links(get_unless_translated(entry.definition, language))
+    if entry.notes:
+        ans["notes"] = fix_links(get_unless_translated(entry.notes, language))
     
-    if "examples" in entry:
-        ans["examples"] = fix_links(get_unless_translated(entry["examples"], language))
+    if entry.examples:
+        ans["examples"] = fix_links(get_unless_translated(entry.examples, language))
     
-    if primary_pos == "n":
-        if "inhps" in extra and entry.get("components", None):
-            ans["see"] = fix_links(entry["components"])
+    if entry.simple_pos == "n":
+        if "inhps" in entry.tags and entry.components:
+            ans["see"] = fix_links(entry.components)
         
-        elif "suff" not in extra and "inhpl" not in extra:
-            if "body" in extra:
+        elif "suff" not in entry.tags and "inhpl" not in entry.tags:
+            if "body" in entry.tags:
                 ans["inflections"] = "-Du'"
             
-            elif "being" in extra:
+            elif "being" in entry.tags:
                 ans["inflections"] = "-pu', -mey"
             
-    if "components" in entry:
-        ans["components"] = fix_links(entry["components"])
+    if entry.components:
+        ans["components"] = fix_links(entry.components)
 
-    for field in ["synonyms", "antonyms", "see_also", "source"]:
-        if field in entry:
-            ans[field] = fix_links(entry[field])
+    for field in ["components", "synonyms", "antonyms", "see_also", "source"]:
+        if getattr(entry, field):
+            ans[field] = fix_links(getattr(entry, field))
     
     return ans
 
