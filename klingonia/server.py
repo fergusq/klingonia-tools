@@ -77,11 +77,11 @@ QUERY_OPERATORS: Dict[str, Callable[[BoqwizEntry, str], Any]] = {
     "tlh": lambda entry, arg: re.search(fix_xifan(arg), entry.name),
     "notes": lambda entry, arg: re.search(arg, entry.notes.get("en", "")),
     "ex": lambda entry, arg: re.search(arg, entry.examples.get("en", "")),
-    "pos": lambda entry, arg: set(arg.split(",")) < set(re.split(r"[:,]", entry.part_of_speech)),
-    "antonym": lambda entry, arg: re.search(fix_xifan(arg), entry.antonyms),
-    "synonym": lambda entry, arg: re.search(fix_xifan(arg), entry.synonyms),
-    "components": lambda entry, arg: re.search(fix_xifan(arg), entry.components),
-    "see": lambda entry, arg: re.search(fix_xifan(arg), entry.see_also),
+    "pos": lambda entry, arg: set(arg.split(",")) <= ({entry.simple_pos} | entry.tags),
+    "antonym": lambda entry, arg: re.search(fix_xifan(arg), entry.antonyms or ""),
+    "synonym": lambda entry, arg: re.search(fix_xifan(arg), entry.synonyms or ""),
+    "components": lambda entry, arg: re.search(fix_xifan(arg), entry.components or ""),
+    "see": lambda entry, arg: re.search(fix_xifan(arg), entry.see_also or ""),
 }
 
 def add_operators(language: str):
@@ -232,10 +232,28 @@ def parse_term(parts: List[str], lang: str):
         
         return func
 
+def get_wiki_name(name: str) -> str:
+    name = name.replace(" ", "")
+    ans = ""
+    for letter in yajwiz.split_to_letters(name):
+        if letter == "q":
+            ans += "k"
+        
+        elif letter == "'":
+            ans += "-"
+        
+        else:
+            ans += letter
+    
+    return ans.capitalize()
+
 def render_entry(entry: BoqwizEntry, language: str) -> dict:
     ans = {
         "name": entry.name,
+        "url_name": entry.name.replace(" ", "+"),
+        "wiki_name": get_wiki_name(entry.name),
         "pos": "unknown",
+        "simple_pos": entry.simple_pos,
         "tags": [],
     }
     if entry.simple_pos == "v":
@@ -322,7 +340,7 @@ def render_entry(entry: BoqwizEntry, language: str) -> dict:
     if entry.components:
         ans["components"] = fix_links(entry.components)
 
-    for field in ["components", "synonyms", "antonyms", "see_also", "source"]:
+    for field in ["components", "synonyms", "antonyms", "see_also", "source", "hidden_notes"]:
         if getattr(entry, field):
             ans[field] = fix_links(getattr(entry, field))
     
@@ -353,27 +371,44 @@ def fix_links(text: str) -> str:
     return ans.replace("\n", "<br>")
 
 def fix_link(link: str) -> str:
-    if link.endswith(":nolink"):
-        return "<b>" + link[:link.index(":")] + "</b>"
+    parts1 = link.split("@@")
+    parts2 = parts1[0].split(":")
+    link_text = parts2[0]
+    link_type = parts2[1] if len(parts2) > 1 else ""
+    tags = parts2[2].split(",") if len(parts2) > 2 else []
     
-    elif link.endswith(":src"):
-        return "<i>" + link[:link.index(":")] + "</i>"
+    if link_type == "nolink":
+        style = link_type if link_type else "sen"
+        return "<b class=\"pos-{style}\">" + link_text + "</b>"
     
-    elif link.count(":url:") == 1:
-        [text, addr] = link.split(":url:")
-        return f"<a target=_blank href=\"{addr}\">{text}</a>"
+    elif link_type == "src":
+        return "<i>" + link_text + "</i>"
     
-    elif "@@" in link:
-        text = link[:link.index("@@")]
-        return f"<a href=\"?q={text.replace(' ', '+')}\">{text}</a>"
+    elif link_type == "url":
+        addr = parts2[2]
+        return f"<a target=_blank href=\"{addr}\">{link_text}</a>"
     
-    elif ":" in link:
-        text = link[:link.index(":")]
-        return f"<a href=\"?q={text.replace(' ', '+')}\">{text}</a>"
+    elif len(parts1) == 2:
+        style = link_type if link_type else "sen"
+        return f"<a href=\"?q={link_text.replace(' ', '+')}\" class=\"pos-{style}\">{link_text}</a>"
     
     else:
-        text = link
-        return f"<a href=\"?q={text.replace(' ', '+')}\">{text}</a>"
+        hyp = "<sup>?</sup>" if "hyp" in tags else ""
+        hom = ""
+        hom_pos = ""
+        for i in range(1, 10):
+            if str(i) in tags:
+                hom = f"<sup>{i}</sup>"
+                hom_pos = f"+pos:{i}"
+                break
+            
+            elif f"{i}h" in tags:
+                hom_pos = f"+pos:{i}"
+                break
+
+        pos = "+pos:"+link_type if link_type and link_type != "sen" else ""
+        style = link_type if link_type else "sen"
+        return f"<a href=\"?q={link_text.replace(' ', '+')}{pos}{hom_pos}\" class=\"pos-{style}\">{hyp}{link_text}{hom}</a>"
 
 def fix_xifan(query: str) -> str:
     query = re.sub(r"i", "I", query)

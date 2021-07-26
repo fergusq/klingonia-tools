@@ -44,7 +44,7 @@
     <details class="dictionary-info">
         <summary>{{ lang.dictionary_info }}</summary>
 
-        <p>Based on the <a href="https://github.com/De7vID/klingon-assistant-data">boQwI' dictionary data</a>.</p>
+        <p>Based on the <a href="https://github.com/De7vID/klingon-assistant-data">boQwI' dictionary data</a> version {{ boqwiz_version }}.</p>
 
         <p>Example queries:</p>
 
@@ -158,12 +158,11 @@
         {% for entry in result %}
 
         <tr>
-            <th>{{ entry.name }}</th>
+            <th class=pos-{{entry.simple_pos}}>{% if "hypothetical" in entry.tags %}<sup>?</sup>{% endif %}{{ entry.name }}{% if entry.homonym is defined %}<sup>{{ entry.homonym }}</sup>{% endif %}</th>
             <td>
                 <details>
                     <summary>
-                        {% if entry.homonym is defined %}{{ entry.homonym }}.{% endif %}
-                        <i>({{ lang[entry.pos] }})</i>
+                        <i>({{ lang[entry.pos] }}{% for tag in entry.tags %}, {{ lang[tag] }}{% endfor %})</i>
                         {{ entry.definition | safe }}
                     </summary>
         
@@ -198,6 +197,18 @@
                     {% if entry.source is defined %}
                     <p><b>{{lang.source}}:</b> {{ entry.source | safe}}</p>
                     {% endif %}
+        
+                    {% if entry.hidden_notes is defined %}
+                    <p class="small"><b>{{lang.hidden_notes}}:</b> {{ entry.hidden_notes | safe}}</p>
+                    {% endif %}
+
+                    <p>
+                        <a target=_blank href="http://klingon.wiki/Word/{{ entry.wiki_name }}">🔗 {{ lang.wiki }}</a>
+                    </p>
+
+                    <p>
+                        <a target=_blank href="http://klingonska.org/canon/search/?q={{ entry.url_name }}">🔗 {{ lang.klingonska }}</a>
+                    </p>
                 </details>
             </td>
         </tr>
