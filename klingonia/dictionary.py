@@ -8,7 +8,7 @@ dictionary = yajwiz.load_dictionary()
 
 QUERY_OPERATORS: Dict[str, Callable[[BoqwizEntry, str], Any]] = {
     "tlh": lambda entry, arg: re.search(fix_xifan(arg), entry.name),
-    "notes": lambda entry, arg: re.search(arg, entry.notes.get("en", "")),
+    "notes": lambda entry, arg: re.search(arg, entry.notes.get("en", ""), re.IGNORECASE),
     "ex": lambda entry, arg: re.search(arg, entry.examples.get("en", "")),
     "pos": lambda entry, arg: set(arg.split(",")) <= ({entry.simple_pos} | entry.tags),
     "antonym": lambda entry, arg: re.search(fix_xifan(arg), entry.antonyms or ""),
@@ -155,10 +155,10 @@ def parse_term(parts: List[str], lang: str):
             if fix_xifan(part) in entry.name:
                 return True
             
-            if any([tag.startswith(part) for tag in entry.search_tags.get(lang, [])]):
+            if any([tag.lower().startswith(part.lower()) for tag in entry.search_tags.get(lang, [])]):
                 return True
             
-            if part in entry.definition.get(lang, ""):
+            if part.lower() in entry.definition.get(lang, "").lower():
                 return True
             
             return False
