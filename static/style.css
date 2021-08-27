@@ -134,3 +134,8 @@ table tr:nth-child(2n) {
     color: black;
     font-weight: bold;
 }
+
+.pos-affix {
+    color: #c40000;
+    font-weight: bold;
+}

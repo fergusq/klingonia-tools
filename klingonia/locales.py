@@ -1,6 +1,10 @@
 FI = {
     "id": "fi",
 
+    "english": "Englanti",
+    "finnish": "Suomi",
+    "german": "Saksa",
+
     "dictionary": "Sanakirja",
     "proofreader": "Kielentarkistin",
     "corpus": "Korpus",
@@ -23,6 +27,9 @@ FI = {
     "conjunction": "konjunktio",
     "exclamation": "huudahdus",
     "sentence": "esimerkkilause",
+
+    "plural": "monikko",
+    "singular": "yksikkö",
 
     "slang": "slangia",
     "regional": "alueel.",
@@ -47,6 +54,10 @@ FI = {
 EN = {
     "id": "en",
 
+    "english": "English",
+    "finnish": "Finnish",
+    "german": "German",
+
     "dictionary": "Dictionary",
     "proofreader": "Proofreader",
     "corpus": "Corpus",
@@ -69,6 +80,9 @@ EN = {
     "conjunction": "conj.",
     "exclamation": "excl.",
     "sentence": "sent.",
+
+    "plural": "plural",
+    "singular": "singular",
 
     "slang": "slang",
     "regional": "reg.",
@@ -93,6 +107,10 @@ EN = {
 DE = {
     "id": "de",
 
+    "english": "Englisch",
+    "finnish": "Finnisch",
+    "german": "Deutsch",
+
     "dictionary": "Wörterbuch",
     "proofreader": "Sprachprüfer",
     "corpus": "Sprachkorpus",
@@ -115,6 +133,9 @@ DE = {
     "conjunction": "Bindewort",
     "exclamation": "Ausruf",
     "sentence": "Satz",
+
+    "plural": "Mehrzahl",
+    "singular": "Einzahl",
 
     "slang": "Slang",
     "regional": "regional",

@@ -198,6 +198,10 @@
                     <p><b>{{lang.source}}:</b> {{ entry.source | safe}}</p>
                     {% endif %}
         
+                    {% if entry.english is defined %}
+                    <p class="small"><b>{{lang.english}}:</b> {{ entry.english | safe}}</p>
+                    {% endif %}
+        
                     {% if entry.hidden_notes is defined %}
                     <p class="small"><b>{{lang.hidden_notes}}:</b> {{ entry.hidden_notes | safe}}</p>
                     {% endif %}

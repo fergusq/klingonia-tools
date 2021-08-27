@@ -1,3 +1,4 @@
+from collections import defaultdict
 from aiohttp import web
 import aiohttp_jinja2
 import jinja2
@@ -15,7 +16,7 @@ routes = web.RouteTableDef()
 @routes.get('/index/{lang}')
 @routes.get('/index/{lang}/')
 @aiohttp_jinja2.template("index.jinja2")
-async def get_proofread(request):
+async def get_index(request):
     lang = request.match_info.get("lang", "en")
     return {"lang": locales.locale_map[lang], "path": "/index"}
 
@@ -43,18 +44,21 @@ async def post_proofread(request):
 def check_and_render(text: str):
     errors = yajwiz.get_errors(text)
     errors.sort(key=lambda e: e.location)
-    ans = ""
-    i = 0
+    error_dict = defaultdict(list)
     for error in errors:
-        ans += text[i:error.location]
-        if " " not in text[error.location:]:
-            ans += f'<span class=error title="{error.message}">{text[error.location:]}</span>'
-            return len(errors), ans
-
-        i = text.index(" ", error.location)
-        ans += f'<span class=error title="{error.message}">{text[error.location:i]}</span>'
+        error_dict[error.location].append(error)
     
-    ans += text[i:]
+    ans = ""
+    close_dict = defaultdict(lambda: 0)
+    for i in range(len(text)):
+        ans += "</span>" * close_dict[i]
+        if i in error_dict:
+            for error in sorted(error_dict[i], key=lambda e: e.end_location):
+                ans += f'<span class=error title="{error.message}">'
+                close_dict[error.end_location] += 1
+            
+        ans += text[i]
+    
     return len(errors), ans
 
 @routes.get('/dictionary')
@@ -65,7 +69,8 @@ def check_and_render(text: str):
 async def get_dictionary(request: web.Request):
     lang = request.match_info.get("lang", "en")
     query = request.query.get("q", "")
-    return {"lang": locales.locale_map[lang], "path": "/dictionary", "input": query, "result": dictionary.dictionary_query(query, lang), "boqwiz_version": dictionary.dictionary.version}
+    accent = request.query.get("accent", "") != ""
+    return {"lang": locales.locale_map[lang], "path": "/dictionary", "input": query, "result": dictionary.dictionary_query(query, lang, accent), "boqwiz_version": dictionary.dictionary.version}
 
 @routes.get("/api/analyze")
 async def analyze(request):
@@ -80,7 +85,7 @@ async def grammar_check(request):
     errors = yajwiz.get_errors(text)
     return web.json_response(errors)
 
-routes.static('/', "static/")
+routes.static('/static/', "static/")
 
 app = web.Application()
 aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader('templates/'))
