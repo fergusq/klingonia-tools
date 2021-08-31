@@ -1,0 +1,1 @@
+rsync -avz --delete templates static klingonia requirements.txt klingonia@kirsikka.klingonia.fi:klingonia-utils
