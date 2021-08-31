@@ -27,7 +27,8 @@ async def get_index(request):
 @aiohttp_jinja2.template("proofreader.jinja2")
 async def get_proofread(request):
     lang = request.match_info.get("lang", "en")
-    return {"lang": locales.locale_map[lang], "path": "/proofread", "input": "", "result": ""}
+    bare = request.query.get("bare", "") != ""
+    return {"lang": locales.locale_map[lang], "path": "/proofread", "input": "", "result": "", "bare": bare}
 
 @routes.post("/proofread")
 @routes.post("/proofread/{lang}")
@@ -39,7 +40,15 @@ async def post_proofread(request):
         raise web.HTTPBadRequest()
     
     n_errors, render = check_and_render(query["text"])
-    return {"lang": locales.locale_map[lang], "path": "/proofread", "input": query["text"], "result": render, "no_errors": n_errors == 0}
+    bare = request.query.get("bare", "") != ""
+    return {
+        "lang": locales.locale_map[lang],
+        "path": "/proofread",
+        "input": query["text"],
+        "result": render,
+        "no_errors": n_errors == 0,
+        "bare": bare,
+    }
 
 def check_and_render(text: str):
     errors = yajwiz.get_errors(text)
@@ -70,7 +79,15 @@ async def get_dictionary(request: web.Request):
     lang = request.match_info.get("lang", "en")
     query = request.query.get("q", "")
     accent = request.query.get("accent", "") != ""
-    return {"lang": locales.locale_map[lang], "path": "/dictionary", "input": query, "result": dictionary.dictionary_query(query, lang, accent), "boqwiz_version": dictionary.dictionary.version}
+    bare = request.query.get("bare", "") != ""
+    return {
+        "lang": locales.locale_map[lang],
+        "path": "/dictionary",
+        "input": query,
+        "result": dictionary.dictionary_query(query, lang, accent),
+        "boqwiz_version": dictionary.dictionary.version,
+        "bare": bare
+    }
 
 @routes.get("/api/analyze")
 async def analyze(request):

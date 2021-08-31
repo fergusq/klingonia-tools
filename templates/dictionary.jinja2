@@ -1,9 +1,25 @@
-
-<!doctype html>
+{% if not bare %}<!doctype html>{% endif %}
 
 <style>
     body {
         font-family: roboto, sans-serif;
+    }
+
+    {% if bare %}div.page-content > h1 {
+        margin-top: 0;
+    }{% endif %}
+
+    .page-content table.results {
+        overflow: unset;
+    }
+
+    .page-content table.results details {
+        padding: 0;
+        border: none;
+    }
+
+    .page-content details > summary {
+        outline: none;
     }
 
     details.dictionary-info {
@@ -33,9 +49,40 @@
     table.results {
         width: 100%;
     }
+
+    .small {
+        font-size: 0.7rem;
+    }
+
+    .pos-v {
+        color: #e37729;
+        font-weight: bold;
+    }
+
+    .pos-n {
+        color: darkgreen;
+        font-weight: bold;
+    }
+
+    .pos-adv, .pos-conj, .pos-ques, .pos-excl {
+        color: blue;
+        font-weight: bold;
+    }
+
+    .pos-sen {
+        color: black;
+        font-weight: bold;
+    }
+
+    .pos-affix {
+        color: #c40000;
+        font-weight: bold;
+    }
 </style>
 
+{% if not bare %}
 {% include "side-bar.jinja2" %}
+{% endif %}
 
 <div class=page-content>
 
@@ -149,7 +196,7 @@
         </table>
     </details>
 
-    <form method=get action="{{ path }}/{{ lang.id }}">
+    <form method=get action="">
         <input type=text name=q value="{{ input }}" autocomplete=off>
         <input type=submit value="{{ lang.search }}">
     </form>

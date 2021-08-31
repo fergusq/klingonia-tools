@@ -1,9 +1,13 @@
-<!doctype html>
+{% if not bare %}<!doctype html>{% endif %}
 
 <style>
     body {
         font-family: roboto, sans-serif;
     }
+
+    {% if bare %}div.page-content > h1 {
+        margin-top: 0;
+    }{% endif %}
 
     .results {
         white-space: pre-wrap;
@@ -32,13 +36,15 @@
     }
 </style>
 
+{% if not bare %}
 {% include "side-bar.jinja2" %}
+{% endif %}
 
 <div class=page-content>
 
     <h1>{{ lang.proofreader }}</h1>
 
-    <form method=post action="{{ path }}/{{ lang.id }}">
+    <form method=post action="">
 
         <textarea name="text" rows=10>{{ input }}</textarea><br>
 

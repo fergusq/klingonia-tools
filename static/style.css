@@ -111,31 +111,3 @@ table tr:nth-child(2n) {
     background: #f8f9fa;
 }
 
-.small {
-    font-size: 0.7rem;
-}
-
-.pos-v {
-    color: #e37729;
-    font-weight: bold;
-}
-
-.pos-n {
-    color: darkgreen;
-    font-weight: bold;
-}
-
-.pos-adv, .pos-conj, .pos-ques, .pos-excl {
-    color: blue;
-    font-weight: bold;
-}
-
-.pos-sen {
-    color: black;
-    font-weight: bold;
-}
-
-.pos-affix {
-    color: #c40000;
-    font-weight: bold;
-}
