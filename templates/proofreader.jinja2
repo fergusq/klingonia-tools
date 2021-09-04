@@ -44,24 +44,43 @@
 
     <h1>{{ lang.proofreader }}</h1>
 
-    <form method=post action="">
+    <form id=input_form>
 
-        <textarea name="text" rows=10>{{ input }}</textarea><br>
+        <textarea id=input_text name="text" rows=10></textarea><br>
 
         <input type=submit value="{{ lang.check }}">
 
     </form>
 
-    {% if no_errors is true %}
-    <p>{{ lang.no_errors }}</p>
-    {% else %}
-        {% if result is defined %}
-
-        <p>{{ lang.errors_marked }}</p>
-
-        <div class=results>{{ result | safe }}</div>
-
-        {% endif %}
-    {% endif %}
+    <div id=results_view class=results></div>
 
 </div>
+
+<script>
+    const NO_ERRORS = `{{ lang.no_errors }}`
+    const ERRORS_MARKED = `<p>{{ lang.errors_marked }}</p>`
+    input_form.onsubmit = function proofread(event) {
+        var text = input_text.value
+        if (text.length > 0) {
+            fetch("/api/proofread", {
+                method: "POST",
+                headers: {
+                    "Content-Type": 'text/plain'
+                },
+                body: text
+            })
+            .then(response => response.json())
+            .then(data => updateResults(data))
+        }
+        event.preventDefault()
+    }
+
+    function updateResults(data) {
+        if (data.n_errors == 0) {
+            results_view.innerHTML = NO_ERRORS
+        } else {
+            results_view.innerHTML = ERRORS_MARKED + data.render
+        }
+    }
+        
+</script>

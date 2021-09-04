@@ -1,4 +1,5 @@
 from collections import defaultdict
+from klingonia.proofread import check_and_render
 from aiohttp import web
 import aiohttp_jinja2
 import jinja2
@@ -30,46 +31,6 @@ async def get_proofread(request):
     bare = request.query.get("bare", "") != ""
     return {"lang": locales.locale_map[lang], "path": "/proofread", "input": "", "result": "", "bare": bare}
 
-@routes.post("/proofread")
-@routes.post("/proofread/{lang}")
-@aiohttp_jinja2.template("proofreader.jinja2")
-async def post_proofread(request):
-    lang = request.match_info.get("lang", "en")
-    query = await request.post()
-    if "text" not in query:
-        raise web.HTTPBadRequest()
-    
-    n_errors, render = check_and_render(query["text"])
-    bare = request.query.get("bare", "") != ""
-    return {
-        "lang": locales.locale_map[lang],
-        "path": "/proofread",
-        "input": query["text"],
-        "result": render,
-        "no_errors": n_errors == 0,
-        "bare": bare,
-    }
-
-def check_and_render(text: str):
-    errors = yajwiz.get_errors(text)
-    errors.sort(key=lambda e: e.location)
-    error_dict = defaultdict(list)
-    for error in errors:
-        error_dict[error.location].append(error)
-    
-    ans = ""
-    close_dict = defaultdict(lambda: 0)
-    for i in range(len(text)):
-        ans += "</span>" * close_dict[i]
-        if i in error_dict:
-            for error in sorted(error_dict[i], key=lambda e: e.end_location):
-                ans += f'<span class=error title="{error.message}">'
-                close_dict[error.end_location] += 1
-            
-        ans += text[i]
-    
-    return len(errors), ans
-
 @routes.get('/dictionary')
 @routes.get('/dictionary/')
 @routes.get('/dictionary/{lang}')
@@ -90,17 +51,27 @@ async def get_dictionary(request: web.Request):
     }
 
 @routes.get("/api/analyze")
-async def analyze(request):
+async def api_analyze(request):
     if "word" not in request.query:
         raise web.HTTPBadRequest()
     word = request.query["word"]
     return web.json_response(yajwiz.analyze(word))
 
 @routes.post("/api/grammar_check")
-async def grammar_check(request):
+async def api_grammar_check(request):
     text = await request.text()
     errors = yajwiz.get_errors(text)
     return web.json_response(errors)
+
+@routes.post("/api/proofread")
+async def api_proofread(request):
+    lang = request.match_info.get("lang", "en")
+    text = await request.text()
+    n_errors, render = check_and_render(text)
+    return web.json_response({
+        "n_errors": n_errors,
+        "render": render,
+    })
 
 routes.static('/static/', "static/")
 
