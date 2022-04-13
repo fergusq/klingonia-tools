@@ -168,15 +168,18 @@ def parse_term(parts: List[str], lang: str):
             if fix_xifan(part) in entry.name:
                 return True
             
-            if any([tag.lower().startswith(part.lower()) for tag in entry.search_tags.get(lang, [])]):
+            if any_word_starts_with(part, entry.search_tags.get(lang, [])):
                 return True
             
-            if part.lower() in entry.definition.get(lang, "").lower():
+            if any_word_starts_with(part, entry.definition.get(lang, "").lower().split()):
                 return True
             
             return False
         
         return func
+
+def any_word_starts_with(word: str, words: List[str]):
+    return any([part.lower().startswith(word.lower()) for part in words])
 
 def get_wiki_name(name: str) -> str:
     name = name.replace(" ", "")
@@ -260,6 +263,9 @@ def render_entry(entry: BoqwizEntry, language: str) -> dict:
     
     if "hyp" in entry.tags:
         ans["tags"].append("hypothetical")
+    
+    if "extcan" in entry.tags:
+        ans["tags"].append("extracanonical")
     
     for i in range(1, 10):
         if str(i) in entry.tags:
@@ -349,7 +355,7 @@ def fix_link(link: str) -> str:
         return f"<a href=\"?q={link_text.replace(' ', '+')}\" class=\"pos-{style}\" okrand>{link_text2}</a>"
     
     else:
-        hyp = "<sup>?</sup>" if "hyp" in tags else ""
+        hyp = "<sup>?</sup>" if "hyp" in tags else "*" if "extcan" in tags else ""
         hom = ""
         hom_pos = ""
         for i in range(1, 10):

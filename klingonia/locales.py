@@ -35,6 +35,7 @@ FI = {
     "regional": "alueel.",
     "archaic": "vanh.",
     "hypothetical": "hyp.",
+    "extracanonical": "ekstrakan.",
 
     "examples": "Esimerkkejä",
     "components": "Osat",
@@ -88,6 +89,7 @@ EN = {
     "regional": "reg.",
     "archaic": "archaic",
     "hypothetical": "hyp.",
+    "extracanonical": "extcan.",
 
     "examples": "Examples",
     "components": "Components",
@@ -141,6 +143,7 @@ DE = {
     "regional": "regional",
     "archaic": "veraltet",
     "hypothetical": "hypothet.",
+    "extracanonical": "extrakanon.",
 
     "examples": "Beispiele",
     "components": "Komponenten",
