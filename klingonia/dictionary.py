@@ -31,7 +31,7 @@ def add_operators(language: str):
 for language in dictionary.locales:
     add_operators(language)
 
-def dictionary_query(query: str, lang: str, accent: bool):
+def dictionary_query(query: str, lang: str):
     """
     Dictionary query:
     1. Analyze it whole as a Klingon word
@@ -50,7 +50,7 @@ def dictionary_query(query: str, lang: str, accent: bool):
     
     analyses = yajwiz.analyze(fix_xifan(query))
     if analyses:
-        parts += fix_analysis_parts(analyses, lang, accent)
+        parts += fix_analysis_parts(analyses, lang)
     
     if ":" not in query:
         words = query.split(" ")
@@ -59,7 +59,7 @@ def dictionary_query(query: str, lang: str, accent: bool):
             analyses += yajwiz.analyze(fix_xifan(word))
         
         if analyses:
-            parts += fix_analysis_parts(analyses, lang, accent)
+            parts += fix_analysis_parts(analyses, lang)
     
     included = set()
     ans = []
@@ -67,13 +67,13 @@ def dictionary_query(query: str, lang: str, accent: bool):
         if part not in included:
             included.add(part)
 
-            ans.append(render_entry(dictionary.entries[part], lang, accent))
+            ans.append(render_entry(dictionary.entries[part], lang))
     
-    ans += dsl_query(query, lang, included, accent)
+    ans += dsl_query(query, lang, included)
 
     return ans
 
-def fix_analysis_parts(analyses: List[yajwiz.analyzer.Analysis], lang: str, accent: bool):
+def fix_analysis_parts(analyses: List[yajwiz.analyzer.Analysis], lang: str):
     parts = []
     names = []
     for part in [part for a in analyses for part in a["PARTS"]]:
@@ -84,7 +84,7 @@ def fix_analysis_parts(analyses: List[yajwiz.analyzer.Analysis], lang: str, acce
     parts.sort(key=lambda p: names.index(p[:p.index(":")]))
     return parts
 
-def dsl_query(query: str, lang: str, included: Set[str], accent: bool):
+def dsl_query(query: str, lang: str, included: Set[str]):
     parts = [""]
     quote = False
     for i in range(len(query)):
@@ -113,7 +113,7 @@ def dsl_query(query: str, lang: str, included: Set[str], accent: bool):
             f = False
         
         if entry_id not in included and f:
-            ans.append(render_entry(entry, lang, accent))
+            ans.append(render_entry(entry, lang))
     
     return ans
 
@@ -193,9 +193,9 @@ def get_wiki_name(name: str) -> str:
     
     return ans.capitalize()
 
-def render_entry(entry: BoqwizEntry, language: str, accent: bool) -> dict:
+def render_entry(entry: BoqwizEntry, language: str) -> dict:
     ans = {
-        "name": fix_text(entry.name) if accent else entry.name,
+        "name": entry.name,
         "url_name": entry.name.replace(" ", "+"),
         "wiki_name": get_wiki_name(entry.name),
         "pos": "unknown",
@@ -265,27 +265,27 @@ def render_entry(entry: BoqwizEntry, language: str, accent: bool) -> dict:
         if str(i) in entry.tags:
             ans["homonym"] = i
 
-    ans["definition"] = fix_links(get_unless_translated(entry.definition, language), accent)
+    ans["definition"] = fix_links(get_unless_translated(entry.definition, language))
 
     if language != "en":
-        ans["english"] = fix_links(entry.definition["en"], accent)
+        ans["english"] = fix_links(entry.definition["en"])
 
     if entry.notes:
-        ans["notes"] = fix_links(get_unless_translated(entry.notes, language), accent)
+        ans["notes"] = fix_links(get_unless_translated(entry.notes, language))
     
     if entry.examples:
-        ans["examples"] = fix_links(get_unless_translated(entry.examples, language), accent)
+        ans["examples"] = fix_links(get_unless_translated(entry.examples, language))
             
     if entry.components:
-        ans["components"] = fix_links(entry.components, accent)
+        ans["components"] = fix_links(entry.components)
     
     if entry.simple_pos == "n":
         if "inhps" in entry.tags and entry.components:
-            ans["inflections"] = locales.locale_map[language]["plural"] + ": " + fix_links(entry.components, accent)
+            ans["inflections"] = locales.locale_map[language]["plural"] + ": " + fix_links(entry.components)
             del ans["components"]
 
         elif "inhpl" in entry.tags and entry.components:
-            ans["inflections"] = locales.locale_map[language]["singular"] + ": " + fix_links(entry.components, accent)
+            ans["inflections"] = locales.locale_map[language]["singular"] + ": " + fix_links(entry.components)
             del ans["components"]
         
         elif "suff" not in entry.tags and "inhpl" not in entry.tags:
@@ -297,7 +297,7 @@ def render_entry(entry: BoqwizEntry, language: str, accent: bool) -> dict:
 
     for field in ["synonyms", "antonyms", "see_also", "source", "hidden_notes"]:
         if getattr(entry, field):
-            ans[field] = fix_links(getattr(entry, field), accent)
+            ans[field] = fix_links(getattr(entry, field))
     
     return ans
 
@@ -311,7 +311,7 @@ def get_unless_translated(d, l):
     else:
         return d[l]
 
-def fix_links(text: str, accent: bool) -> str:
+def fix_links(text: str) -> str:
     ans = ""
     while "{" in text:
         i = text.index("{")
@@ -319,24 +319,23 @@ def fix_links(text: str, accent: bool) -> str:
         text = text[i+1:]
         i = text.index("}")
         link = text[:i]
-        ans += fix_link(link, accent)
+        ans += fix_link(link)
         text = text[i+1:]
     
     ans += text
     return ans.replace("\n", "<br>")
 
-def fix_link(link: str, accent: bool) -> str:
+def fix_link(link: str) -> str:
     parts1 = link.split("@@")
     parts2 = parts1[0].split(":")
     link_text = parts2[0]
-    link_text2 = fix_text(link_text) if accent else link_text
+    link_text2 = link_text
     link_type = parts2[1] if len(parts2) > 1 else ""
     tags = parts2[2].split(",") if len(parts2) > 2 else []
     
-    accentparam = "&accent=1" if accent else ""
     if "nolink" in tags:
         style = "affix" if "-" in link_text else link_type if link_type else "sen"
-        return f"<b class=\"pos-{style}\">" + link_text2 + "</b>"
+        return f"<b class=\"pos-{style}\" okrand>" + link_text2 + "</b>"
     
     elif link_type == "src":
         return "<i>" + link_text + "</i>"
@@ -347,7 +346,7 @@ def fix_link(link: str, accent: bool) -> str:
     
     elif len(parts1) == 2:
         style = link_type if link_type else "sen"
-        return f"<a href=\"?q={link_text.replace(' ', '+')}{accentparam}\" class=\"pos-{style}\">{link_text2}</a>"
+        return f"<a href=\"?q={link_text.replace(' ', '+')}\" class=\"pos-{style}\" okrand>{link_text2}</a>"
     
     else:
         hyp = "<sup>?</sup>" if "hyp" in tags else ""
@@ -365,7 +364,7 @@ def fix_link(link: str, accent: bool) -> str:
 
         pos = "+pos:"+link_type if link_type and link_type != "sen" else ""
         style = "affix" if "-" in link_text else link_type if link_type else "sen"
-        return f"<a href=\"?q=tlh:&quot;^{link_text.replace(' ', '+')}$&quot;{pos}{hom_pos}{accentparam}\" class=\"pos-{style}\">{hyp}{link_text2}{hom}</a>"
+        return f"<a href=\"?q=tlh:&quot;^{link_text.replace(' ', '+')}$&quot;{pos}{hom_pos}\" class=\"pos-{style}\">{hyp}<span okrand>{link_text2}</span>{hom}</a>"
 
 def fix_xifan(query: str) -> str:
     query = re.sub(r"i", "I", query)
@@ -377,70 +376,3 @@ def fix_xifan(query: str) -> str:
     query = re.sub(r"c(?!h)", "ch", query)
     query = re.sub(r"(?<!n)g(?!h)", "gh", query)
     return query
-
-ZINGAN = {
-    "ch": "c",
-    "D": "d",
-    "gh": "g",
-    "H": "h",
-    "I": "i",
-    "q": "k",
-    "Q": "q",
-    "S": "s",
-    "tlh": "z",
-}
-
-GRAVE = {
-    "a": "à",
-    "e": "è",
-    "i": "ì",
-    "o": "ò",
-    "u": "ù",
-}
-
-ACUTE = {
-    "a": "á",
-    "e": "é",
-    "i": "í",
-    "o": "ó",
-    "u": "ú",
-    "y": "ý",
-    "w": "ẃ",
-}
-
-CARON = {
-    "a": "ǎ",
-    "e": "ě",
-    "i": "ǐ",
-    "o": "ǒ",
-    "u": "ǔ",
-}
-
-def fix_text(text) -> str:
-    ans = ""
-    for word in text.split(" "):
-        for syllable in yajwiz.split_to_syllables(word):
-            letters = yajwiz.split_to_letters(syllable)
-            if len(letters) <= 1:
-                ans += syllable
-                continue
-            
-            letters = [ZINGAN.get(letter, letter) for letter in letters]
-            if len(letters) == 3 and letters[0] == "'" and letters[-1] == "'":
-                letters = letters[1:-1]
-                ans += CARON[letters[0]]
-                continue
-
-            if letters[0] == "'":
-                letters = letters[1:]
-                letters[0] = GRAVE[letters[0]]
-            
-            if letters[-1] == "'":
-                letters = letters[:-1]
-                letters[-1] = ACUTE[letters[-1]]
-            
-            ans += "".join(letters)
-        
-        ans += " "
-    
-    return ans.strip()

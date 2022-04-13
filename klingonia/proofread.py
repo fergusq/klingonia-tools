@@ -29,7 +29,7 @@ def check_and_render(text: str):
             ans += "<td>"
         
         close_dict = defaultdict(lambda: 0)
-        ans += "<td>"
+        ans += "<td okrand>"
         for i in range(len(line)):
             ans += "</span>" * close_dict[i]
             if i in error_dict:

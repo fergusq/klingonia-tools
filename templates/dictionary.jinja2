@@ -54,27 +54,27 @@
         font-size: 0.7rem;
     }
 
-    .pos-v {
+    .pos-v, .pos-v:visited {
         color: #e37729;
         font-weight: bold;
     }
 
-    .pos-n {
+    .pos-n, .pos-n:visited {
         color: darkgreen;
         font-weight: bold;
     }
 
-    .pos-adv, .pos-conj, .pos-ques, .pos-excl {
+    .pos-adv, .pos-conj, .pos-ques, .pos-excl, .pos-adv:visited, .pos-conj:visited, .pos-ques:visited, .pos-excl:visited {
         color: blue;
         font-weight: bold;
     }
 
-    .pos-sen {
+    .pos-sen, .pos-sen:visited {
         color: black;
         font-weight: bold;
     }
 
-    .pos-affix {
+    .pos-affix, .pos-affix:visited {
         color: #c40000;
         font-weight: bold;
     }
@@ -201,70 +201,6 @@
         <input type=submit value="{{ lang.search }}">
     </form>
 
-    <table class=results>
-        {% for entry in result %}
-
-        <tr>
-            <th class=pos-{{entry.simple_pos}}>{% if "hypothetical" in entry.tags %}<sup>?</sup>{% endif %}{{ entry.name }}{% if entry.homonym is defined %}<sup>{{ entry.homonym }}</sup>{% endif %}</th>
-            <td>
-                <details>
-                    <summary>
-                        <i>({{ lang[entry.pos] }}{% for tag in entry.tags %}, {{ lang[tag] }}{% endfor %})</i>
-                        {{ entry.definition | safe }}
-                    </summary>
-        
-                    {% if entry.inflections is defined %}
-                    <p>[{{ entry.inflections | safe }}]</p>
-                    {% endif %}
-        
-                    {% if entry.notes is defined %}
-                    <p>{{ entry.notes | safe }}</p>
-                    {% endif %}
-        
-                    {% if entry.components is defined %}
-                    <p><b>{{lang.components}}:</b> {{ entry.components | safe }}</p>
-                    {% endif %}
-        
-                    {% if entry.synonyms is defined %}
-                    <p><b>{{lang.synonyms}}:</b> {{ entry.synonyms | safe }}</p>
-                    {% endif %}
-        
-                    {% if entry.antonyms is defined %}
-                    <p><b>{{lang.antonyms}}:</b> {{ entry.antonyms | safe }}</p>
-                    {% endif %}
-        
-                    {% if entry.see_also is defined %}
-                    <p><b>{{lang.see_also}}:</b> {{ entry.see_also | safe }}</p>
-                    {% endif %}
-        
-                    {% if entry.examples is defined %}
-                    <p><b>{{lang.examples}}:</b> {{ entry.examples | safe}}</p>
-                    {% endif %}
-        
-                    {% if entry.source is defined %}
-                    <p><b>{{lang.source}}:</b> {{ entry.source | safe}}</p>
-                    {% endif %}
-        
-                    {% if entry.english is defined %}
-                    <p class="small"><b>{{lang.english}}:</b> {{ entry.english | safe}}</p>
-                    {% endif %}
-        
-                    {% if entry.hidden_notes is defined %}
-                    <p class="small"><b>{{lang.hidden_notes}}:</b> {{ entry.hidden_notes | safe}}</p>
-                    {% endif %}
-
-                    <p>
-                        <a target=_blank href="http://klingon.wiki/Word/{{ entry.wiki_name }}">🔗 {{ lang.wiki }}</a>
-                    </p>
-
-                    <p>
-                        <a target=_blank href="http://klingonska.org/canon/search/?q={{ entry.url_name }}">🔗 {{ lang.klingonska }}</a>
-                    </p>
-                </details>
-            </td>
-        </tr>
-
-        {% endfor %}
-    </table>
+    {% include "entries.jinja2" %}
 
 </div>

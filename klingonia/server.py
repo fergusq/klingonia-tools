@@ -39,13 +39,12 @@ async def get_proofread(request):
 async def get_dictionary(request: web.Request):
     lang = request.match_info.get("lang", "en")
     query = request.query.get("q", "")
-    accent = request.query.get("accent", "") != ""
     bare = request.query.get("bare", "") != ""
     return {
         "lang": locales.locale_map[lang],
         "path": "/dictionary",
         "input": query,
-        "result": dictionary.dictionary_query(query, lang, accent),
+        "result": dictionary.dictionary_query(query, lang),
         "boqwiz_version": dictionary.dictionary.version,
         "bare": bare
     }
