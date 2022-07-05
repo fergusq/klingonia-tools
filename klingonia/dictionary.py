@@ -42,162 +42,11 @@ def add_operators(language: str):
     QUERY_OPERATORS[language+"notes"] = lambda entry, arg: re.search(arg, entry.notes.get(language, ""))
     QUERY_OPERATORS[language+"ex"] = lambda entry, arg: re.search(arg, entry.examples.get(language, ""))
 
-for language in dictionary.locales:
-    add_operators(language)
+def init_operators():
+    for language in dictionary.locales:
+        add_operators(language)
 
-def dictionary_query(query: str, lang: str):
-    """
-    Dictionary query:
-    1. Analyze it whole as a Klingon word
-    2. Split at spaces and analyze each word
-    3. Parse text as a dsl query and execute it
-    """
-    if not query:
-        return ""
-    
-    query = re.sub(r"[’`‘]", "'", query)
-    query = re.sub(r"[”“]", "\"", query)
-    query = re.sub(r"\s{2,}", " ", query)
-    query = query.strip()
-
-    parts = []
-    
-    analyses = yajwiz.analyze(fix_xifan(query))
-    if analyses:
-        parts += fix_analysis_parts(analyses, lang)
-    
-    if ":" not in query:
-        words = query.split(" ")
-        analyses = []
-        for word in words:
-            analyses += yajwiz.analyze(fix_xifan(word))
-        
-        if analyses:
-            parts += fix_analysis_parts(analyses, lang)
-    
-    included = set()
-    ans = []
-    for part in parts:
-        if part not in included:
-            included.add(part)
-
-            ans.append(render_entry(dictionary.entries[part], lang))
-    
-    ans += dsl_query(query, lang, included)
-
-    return ans
-
-def fix_analysis_parts(analyses: List[yajwiz.analyzer.Analysis], lang: str):
-    parts = []
-    names = []
-    for part in [part for a in analyses for part in a["PARTS"]]:
-        names.append(part[:part.index(":")])
-        if part not in parts:
-            parts.append(part)
-        
-    parts.sort(key=lambda p: names.index(p[:p.index(":")]))
-    return parts
-
-def dsl_query(query: str, lang: str, included: Set[str]):
-    parts = [""]
-    quote = False
-    for i in range(len(query)):
-        if not quote and query[i] == " ":
-            parts += [""]
-            continue
-    
-        if not quote and query[i] in "()":
-            parts += [query[i], ""]
-            continue
-
-        if query[i] == "\"":
-            quote = not quote
-            continue
-        
-        parts[-1] += query[i]
-    
-    ans = []
-    query_function = parse_or(parts, lang)
-    for entry_id, entry in dictionary.entries.items():
-        try:
-            f = query_function(entry)
-        
-        except:
-            logger.exception("Error during executing query", exc_info=sys.exc_info())
-            f = False
-        
-        if entry_id not in included and f:
-            ans.append(render_entry(entry, lang))
-    
-    return ans
-
-def parse_or(parts: List[str], lang: str):
-    a = parse_and(parts, lang)
-    while parts and parts[0] in {"OR", "TAI"}:
-        parts.pop(0)
-        b = parse_and(parts, lang)
-        a = create_or(a, b)
-    
-    return a
-
-def parse_and(parts: List[str], lang: str):
-    a = parse_term(parts, lang)
-    while parts and parts[0] not in {")", "OR", "TAI"}:
-        if parts[0] in {"AND", "JA"}:
-            parts.pop(0)
-        
-        b = parse_term(parts, lang)
-        a = create_and(a, b)
-    
-    return a
-
-def create_or(a, b):
-    return lambda *args: (a(*args) or b(*args))
-
-def create_and(a, b):
-    return lambda *args: (a(*args) and b(*args))
-
-def parse_term(parts: List[str], lang: str):
-    if not parts:
-        return lambda *args: True
-    
-    part = parts.pop(0)
-    if part == "(":
-        r = parse_or(parts, lang)
-        if parts: parts.pop(0) # )
-        return r
-    
-    if part in {"NOT", "EI"}:
-        r = parse_term(parts, lang)
-        return lambda *args: not r(*args)
-    
-    if ":" in part:
-        op = part[:part.index(":")]
-        arg = part[part.index(":")+1:]
-        if op in QUERY_OPERATORS:
-            return lambda entry: QUERY_OPERATORS[op](entry, arg)
-        
-        else:
-            # illegal situation
-            return lambda entry: False
-    
-    else:
-        def func(entry: BoqwizEntry):
-            if fix_xifan(part) in entry.name:
-                return True
-            
-            if any_word_starts_with(part, entry.search_tags.get(lang, [])):
-                return True
-            
-            if any_word_starts_with(part, entry.definition.get(lang, "").lower().split()):
-                return True
-            
-            return False
-        
-        return func
-
-def any_word_starts_with(word: str, words: List[str]):
-    return any([part.lower().startswith(word.lower()) for part in words])
+init_operators()
 
 def get_wiki_name(name: str) -> str:
     name = name.replace(" ", "")
@@ -214,135 +63,358 @@ def get_wiki_name(name: str) -> str:
     
     return ans.capitalize()
 
-def render_entry(entry: BoqwizEntry, language: str, include_derivs: bool = True) -> dict:
-    ans = {
-        "name": entry.name,
-        "url_name": entry.name.replace(" ", "+"),
-        "wiki_name": get_wiki_name(entry.name),
-        "pos": "unknown",
-        "simple_pos": "affix" if "-" in entry.name else entry.simple_pos,
-        "tags": [],
-        "html_link": render_link(entry.name, entry.simple_pos, entry.tags, language),
-    }
-    if entry.simple_pos == "v":
-        if "is" in entry.tags:
-            ans["pos"] = "adjective"
+class DictionaryQuery:
+    def __init__(self, query: str, language: str):
+        self.query = query
+        self.language = language
+    
+    def execute_query(self):
+        """
+        Dictionary query:
+        1. Analyze it whole as a Klingon word
+        2. Split at spaces and analyze each word
+        3. Parse text as a dsl query and execute it
+        """
+        if not self.query:
+            return ""
         
-        elif "t_c" in entry.tags:
-            ans["pos"] = "transitive verb"
+        query = self.query
+        query = re.sub(r"[’`‘]", "'", query)
+        query = re.sub(r"[”“]", "\"", query)
+        query = re.sub(r"\s{2,}", " ", query)
+        query = query.strip()
+
+        parts = []
         
-        elif "t" in entry.tags:
-            ans["pos"] = "possibly transitive verb"
+        analyses = yajwiz.analyze(fix_xifan(query))
+        if analyses:
+            parts += self.fix_analysis_parts(analyses)
         
-        elif "i_c" in entry.tags:
-            ans["pos"] = "intransitive verb"
+        if ":" not in query:
+            words = query.split(" ")
+            analyses = []
+            for word in words:
+                analyses += yajwiz.analyze(fix_xifan(word))
+            
+            if analyses:
+                parts += self.fix_analysis_parts(analyses)
         
-        elif "i" in entry.tags:
-            ans["pos"] = "possibly intransitive verb"
+        included = set()
+        ans = []
+        for part in parts:
+            if part not in included:
+                included.add(part)
+
+                ans.append(self.render_entry(dictionary.entries[part]))
         
-        elif "pref" in entry.tags:
-            ans["pos"] = "verb prefix"
+        ans += self.dsl_query(query, included)
+
+        return ans
+
+    def fix_analysis_parts(self, analyses: List[yajwiz.analyzer.Analysis]):
+        parts = []
+        names = []
+        for part in [part for a in analyses for part in a["PARTS"]]:
+            names.append(part[:part.index(":")])
+            if part not in parts:
+                parts.append(part)
+            
+        parts.sort(key=lambda p: names.index(p[:p.index(":")]))
+        return parts
+
+    def dsl_query(self, query: str, included: Set[str]):
+        parts = [""]
+        quote = False
+        for i in range(len(query)):
+            if not quote and query[i] == " ":
+                parts += [""]
+                continue
         
-        elif "suff" in entry.tags:
-            ans["pos"] = "verb suffix"
+            if not quote and query[i] in "()":
+                parts += [query[i], ""]
+                continue
+
+            if query[i] == "\"":
+                quote = not quote
+                continue
+            
+            parts[-1] += query[i]
+        
+        ans = []
+        query_function = self.parse_or(parts)
+        for entry_id, entry in dictionary.entries.items():
+            try:
+                f = query_function(entry)
+            
+            except:
+                logger.exception("Error during executing query", exc_info=sys.exc_info())
+                f = False
+            
+            if entry_id not in included and f:
+                ans.append(self.render_entry(entry))
+        
+        return ans
+
+    def parse_or(self, parts: List[str]):
+        a = self.parse_and(parts)
+        while parts and parts[0] in {"OR", "TAI"}:
+            parts.pop(0)
+            b = self.parse_and(parts)
+            a = self.create_or(a, b)
+        
+        return a
+
+    def parse_and(self, parts: List[str]):
+        a = self.parse_term(parts)
+        while parts and parts[0] not in {")", "OR", "TAI"}:
+            if parts[0] in {"AND", "JA"}:
+                parts.pop(0)
+            
+            b = self.parse_term(parts)
+            a = self.create_and(a, b)
+        
+        return a
+
+    def create_or(self, a, b):
+        return lambda *args: (a(*args) or b(*args))
+
+    def create_and(self, a, b):
+        return lambda *args: (a(*args) and b(*args))
+
+    def parse_term(self, parts: List[str]):
+        if not parts:
+            return lambda *args: True
+        
+        part = parts.pop(0)
+        if part == "(":
+            r = self.parse_or(parts)
+            if parts: parts.pop(0) # )
+            return r
+        
+        if part in {"NOT", "EI"}:
+            r = self.parse_term(parts)
+            return lambda *args: not r(*args)
+        
+        if ":" in part:
+            op = part[:part.index(":")]
+            arg = part[part.index(":")+1:]
+            if op in QUERY_OPERATORS:
+                return lambda entry: QUERY_OPERATORS[op](entry, arg)
+            
+            else:
+                # illegal situation
+                return lambda entry: False
         
         else:
-            ans["pos"] = "verb"
-    
-    elif entry.simple_pos == "n":
-        if "suff" in entry.tags:
-            ans["pos"] = "noun suffix"
+            def func(entry: BoqwizEntry):
+                if fix_xifan(part) in entry.name:
+                    return True
+                
+                if any_word_starts_with(part, entry.search_tags.get(self.language, [])):
+                    return True
+                
+                if any_word_starts_with(part, entry.definition.get(self.language, "").lower().split()):
+                    return True
+                
+                return False
+            
+            return func
+
+    def render_entry(self, entry: BoqwizEntry, include_derivs: bool = True) -> dict:
+        ans = {
+            "name": entry.name,
+            "url_name": entry.name.replace(" ", "+"),
+            "wiki_name": get_wiki_name(entry.name),
+            "pos": "unknown",
+            "simple_pos": "affix" if "-" in entry.name else entry.simple_pos,
+            "tags": [],
+            "html_link": self.render_link(entry.name, entry.simple_pos, entry.tags),
+        }
+        if entry.simple_pos == "v":
+            if "is" in entry.tags:
+                ans["pos"] = "adjective"
+            
+            elif "t_c" in entry.tags:
+                ans["pos"] = "transitive verb"
+            
+            elif "t" in entry.tags:
+                ans["pos"] = "possibly transitive verb"
+            
+            elif "i_c" in entry.tags:
+                ans["pos"] = "intransitive verb"
+            
+            elif "i" in entry.tags:
+                ans["pos"] = "possibly intransitive verb"
+            
+            elif "pref" in entry.tags:
+                ans["pos"] = "verb prefix"
+            
+            elif "suff" in entry.tags:
+                ans["pos"] = "verb suffix"
+            
+            else:
+                ans["pos"] = "verb"
+        
+        elif entry.simple_pos == "n":
+            if "suff" in entry.tags:
+                ans["pos"] = "noun suffix"
+            
+            else:
+                ans["pos"] = "noun"
+        
+        elif entry.simple_pos == "ques":
+            ans["pos"] = "question word"
+        
+        elif entry.simple_pos == "adv":
+            ans["pos"] = "adverb"
+        
+        elif entry.simple_pos == "conj":
+            ans["pos"] = "conjunction"
+        
+        elif entry.simple_pos == "excl":
+            ans["pos"] = "exclamation"
+        
+        elif entry.simple_pos == "sen":
+            ans["pos"] = "sentence"
+        
+        if "slang" in entry.tags:
+            ans["tags"].append("slang")
+        
+        if "reg" in entry.tags:
+            ans["tags"].append("regional")
+        
+        if "archaic" in entry.tags:
+            ans["tags"].append("archaic")
+        
+        if "hyp" in entry.tags:
+            ans["tags"].append("hypothetical")
+        
+        if "extcan" in entry.tags:
+            ans["tags"].append("extracanonical")
+        
+        for i in range(1, 10):
+            if str(i) in entry.tags:
+                ans["homonym"] = i
+
+        ans["definition"] = self.fix_links(self.get_unless_translated(entry.definition))
+
+        if self.language != "en":
+            ans["english"] = self.fix_links(entry.definition["en"])
+
+        if entry.notes:
+            ans["notes"] = self.fix_links(self.get_unless_translated(entry.notes))
+        
+        if entry.examples:
+            ans["examples"] = self.fix_links(self.get_unless_translated(entry.examples))
+                
+        if entry.components:
+            ans["components"] = self.fix_links(entry.components)
+        
+        if entry.simple_pos == "n":
+            if "inhps" in entry.tags and entry.components:
+                ans["inflections"] = locales.locale_map[self.language]["plural"] + ": " + self.fix_links(entry.components)
+                del ans["components"]
+
+            elif "inhpl" in entry.tags and entry.components:
+                ans["inflections"] = locales.locale_map[self.language]["singular"] + ": " + self.fix_links(entry.components)
+                del ans["components"]
+            
+            elif "suff" not in entry.tags and "inhpl" not in entry.tags:
+                if "body" in entry.tags:
+                    ans["inflections"] = "-Du'"
+                
+                elif "being" in entry.tags:
+                    ans["inflections"] = "-pu', -mey"
+
+        for field in ["synonyms", "antonyms", "see_also", "source", "hidden_notes"]:
+            if getattr(entry, field):
+                ans[field] = self.fix_links(getattr(entry, field))
+        
+        if include_derivs:
+            derived = []
+            for entry2 in derived_index[entry.id]:
+                derived.append(self.render_entry(entry2, include_derivs=False))
+            
+            if derived:
+                ans["derived"] = derived
+
+        return ans
+
+    def get_unless_translated(self, d):
+        if self.language not in d or not d[self.language]:
+            return d.get("en", "")
+        
+        elif "AUTOTRANSLATED" in d[self.language] or d[self.language] == "TRANSLATE":
+            return d["en"]
         
         else:
-            ans["pos"] = "noun"
-    
-    elif entry.simple_pos == "ques":
-        ans["pos"] = "question word"
-    
-    elif entry.simple_pos == "adv":
-        ans["pos"] = "adverb"
-    
-    elif entry.simple_pos == "conj":
-        ans["pos"] = "conjunction"
-    
-    elif entry.simple_pos == "excl":
-        ans["pos"] = "exclamation"
-    
-    elif entry.simple_pos == "sen":
-        ans["pos"] = "sentence"
-    
-    if "slang" in entry.tags:
-        ans["tags"].append("slang")
-    
-    if "reg" in entry.tags:
-        ans["tags"].append("regional")
-    
-    if "archaic" in entry.tags:
-        ans["tags"].append("archaic")
-    
-    if "hyp" in entry.tags:
-        ans["tags"].append("hypothetical")
-    
-    if "extcan" in entry.tags:
-        ans["tags"].append("extracanonical")
-    
-    for i in range(1, 10):
-        if str(i) in entry.tags:
-            ans["homonym"] = i
+            return d[self.language]
 
-    ans["definition"] = fix_links(get_unless_translated(entry.definition, language), language)
-
-    if language != "en":
-        ans["english"] = fix_links(entry.definition["en"], language)
-
-    if entry.notes:
-        ans["notes"] = fix_links(get_unless_translated(entry.notes, language), language)
-    
-    if entry.examples:
-        ans["examples"] = fix_links(get_unless_translated(entry.examples, language), language)
-            
-    if entry.components:
-        ans["components"] = fix_links(entry.components, language)
-    
-    if entry.simple_pos == "n":
-        if "inhps" in entry.tags and entry.components:
-            ans["inflections"] = locales.locale_map[language]["plural"] + ": " + fix_links(entry.components, language)
-            del ans["components"]
-
-        elif "inhpl" in entry.tags and entry.components:
-            ans["inflections"] = locales.locale_map[language]["singular"] + ": " + fix_links(entry.components, language)
-            del ans["components"]
+    def fix_links(self, text: str) -> str:
+        ans = ""
+        while "{" in text:
+            i = text.index("{")
+            ans += text[:i]
+            text = text[i+1:]
+            i = text.index("}")
+            link = text[:i]
+            ans += self.fix_link(link)
+            text = text[i+1:]
         
-        elif "suff" not in entry.tags and "inhpl" not in entry.tags:
-            if "body" in entry.tags:
-                ans["inflections"] = "-Du'"
-            
-            elif "being" in entry.tags:
-                ans["inflections"] = "-pu', -mey"
+        ans += text
+        return ans.replace("\n", "<br>")
 
-    for field in ["synonyms", "antonyms", "see_also", "source", "hidden_notes"]:
-        if getattr(entry, field):
-            ans[field] = fix_links(getattr(entry, field), language)
-    
-    if include_derivs:
-        derived = []
-        for entry2 in derived_index[entry.id]:
-            derived.append(render_entry(entry2, language, include_derivs=False))
+    def fix_link(self, link: str) -> str:
+        link_text, link_type, tags, parts1, parts2 = parse_link(link)
         
-        if derived:
-            ans["derived"] = derived
+        if "nolink" in tags:
+            style = "affix" if "-" in link_text else link_type if link_type else "sen"
+            return f"<b class=\"pos-{style}\" okrand>" + link_text + "</b>"
+        
+        elif link_type == "src":
+            return "<i>" + link_text + "</i>"
+        
+        elif link_type == "url":
+            addr = parts2[2]
+            return f"<a target=_blank href=\"{addr}\">{link_text}</a>"
+        
+        elif len(parts1) == 2:
+            style = link_type if link_type else "sen"
+            return f"<a href=\"?q={link_text.replace(' ', '+')}\" class=\"pos-{style}\" okrand>{link_text}</a>"
+        
+        else:
+            return self.render_link(link_text, link_type, tags)
 
-    return ans
+    def render_link(self, link_text: str, link_type: str, tags: Collection[str]):
+        hyp = "<sup>?</sup>" if "hyp" in tags else "*" if "extcan" in tags else ""
+        hom = ""
+        hom_pos = ""
+        for i in range(1, 10):
+            if str(i) in tags:
+                hom = f"<sup>{i}</sup>"
+                hom_pos = f"+pos:{i}"
+                break
+            
+            elif f"{i}h" in tags:
+                hom_pos = f"+pos:{i}"
+                break
 
-def get_unless_translated(d, l):
-    if l not in d or not d[l]:
-        return d.get("en", "")
-    
-    elif "AUTOTRANSLATED" in d[l] or d[l] == "TRANSLATE":
-        return d["en"]
-    
-    else:
-        return d[l]
+        pos = "+pos:"+link_type if link_type and link_type != "sen" else ""
+        style = "affix" if "-" in link_text else link_type if link_type else "sen"
+
+        defn = ""
+        word_id = get_id(link_text, link_type, tags)
+        if entry := dictionary.entries.get(word_id, None):
+            defn = self.get_unless_translated(entry.definition)
+            defn = f" title=\"{defn}\""
+        
+        return f"<a href=\"?q=tlh:&quot;^{link_text.replace(' ', '+')}$&quot;{pos}{hom_pos}\" class=\"pos-{style}\"{defn}>{hyp}<span okrand>{link_text}</span>{hom}</a>"
+
+def dictionary_query(query: str, lang: str):
+    return DictionaryQuery(query=query, language=lang).execute_query()
+
+def any_word_starts_with(word: str, words: List[str]):
+    return any([part.lower().startswith(word.lower()) for part in words])
 
 def get_id(link_text: str, link_type: str, tags: Collection[str]) -> str:
     homonyms = [tag for tag in tags if re.fullmatch(r"\d+", tag)]
@@ -360,41 +432,6 @@ def get_links(text: str) -> List[str]:
     
     return ids
 
-def fix_links(text: str, lang: str) -> str:
-    ans = ""
-    while "{" in text:
-        i = text.index("{")
-        ans += text[:i]
-        text = text[i+1:]
-        i = text.index("}")
-        link = text[:i]
-        ans += fix_link(link, lang)
-        text = text[i+1:]
-    
-    ans += text
-    return ans.replace("\n", "<br>")
-
-def fix_link(link: str, lang: str) -> str:
-    link_text, link_type, tags, parts1, parts2 = parse_link(link)
-    
-    if "nolink" in tags:
-        style = "affix" if "-" in link_text else link_type if link_type else "sen"
-        return f"<b class=\"pos-{style}\" okrand>" + link_text + "</b>"
-    
-    elif link_type == "src":
-        return "<i>" + link_text + "</i>"
-    
-    elif link_type == "url":
-        addr = parts2[2]
-        return f"<a target=_blank href=\"{addr}\">{link_text}</a>"
-    
-    elif len(parts1) == 2:
-        style = link_type if link_type else "sen"
-        return f"<a href=\"?q={link_text.replace(' ', '+')}\" class=\"pos-{style}\" okrand>{link_text}</a>"
-    
-    else:
-        return render_link(link_text, link_type, tags, lang)
-
 def parse_link(link: str):
     parts1 = link.split("@@")
     parts2 = parts1[0].split(":")
@@ -402,31 +439,6 @@ def parse_link(link: str):
     link_type = parts2[1] if len(parts2) > 1 else ""
     tags = parts2[2].split(",") if len(parts2) > 2 else []
     return link_text, link_type, tags, parts1, parts2
-
-def render_link(link_text: str, link_type: str, tags: Collection[str], lang: str):
-    hyp = "<sup>?</sup>" if "hyp" in tags else "*" if "extcan" in tags else ""
-    hom = ""
-    hom_pos = ""
-    for i in range(1, 10):
-        if str(i) in tags:
-            hom = f"<sup>{i}</sup>"
-            hom_pos = f"+pos:{i}"
-            break
-        
-        elif f"{i}h" in tags:
-            hom_pos = f"+pos:{i}"
-            break
-
-    pos = "+pos:"+link_type if link_type and link_type != "sen" else ""
-    style = "affix" if "-" in link_text else link_type if link_type else "sen"
-
-    defn = ""
-    word_id = get_id(link_text, link_type, tags)
-    if entry := dictionary.entries.get(word_id, None):
-        defn = get_unless_translated(entry.definition, lang)
-        defn = f" title=\"{defn}\""
-    
-    return f"<a href=\"?q=tlh:&quot;^{link_text.replace(' ', '+')}$&quot;{pos}{hom_pos}\" class=\"pos-{style}\"{defn}>{hyp}<span okrand>{link_text}</span>{hom}</a>"
 
 def fix_xifan(query: str) -> str:
     query = re.sub(r"i", "I", query)
