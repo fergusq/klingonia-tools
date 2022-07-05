@@ -1,7 +1,7 @@
 import logging
 import re
 import sys
-from typing import Dict, Callable, Any, List, Set
+from typing import Collection, DefaultDict, Dict, Callable, Any, List, Set
 
 import yajwiz
 from yajwiz import BoqwizEntry
@@ -11,6 +11,20 @@ from . import locales
 logger = logging.getLogger("dictionary")
 
 dictionary = yajwiz.load_dictionary()
+
+derived_index = DefaultDict[str, List[BoqwizEntry]](list)
+
+def make_derived_index():
+    global derived_index
+    for entry in dictionary.entries.values():
+        if "sen" in entry.tags:
+            continue
+
+        for component in get_links(entry.components or ""):
+            derived_index[component].append(entry)
+            if component.count(":") == 1:
+                derived_index[component + ":1"].append(entry)
+
 
 QUERY_OPERATORS: Dict[str, Callable[[BoqwizEntry, str], Any]] = {
     "tlh": lambda entry, arg: re.search(fix_xifan(arg), entry.name),
@@ -153,6 +167,10 @@ def parse_term(parts: List[str], lang: str):
         if parts: parts.pop(0) # )
         return r
     
+    if part in {"NOT", "EI"}:
+        r = parse_term(parts, lang)
+        return lambda *args: not r(*args)
+    
     if ":" in part:
         op = part[:part.index(":")]
         arg = part[part.index(":")+1:]
@@ -196,7 +214,7 @@ def get_wiki_name(name: str) -> str:
     
     return ans.capitalize()
 
-def render_entry(entry: BoqwizEntry, language: str) -> dict:
+def render_entry(entry: BoqwizEntry, language: str, include_derivs: bool = True) -> dict:
     ans = {
         "name": entry.name,
         "url_name": entry.name.replace(" ", "+"),
@@ -204,6 +222,7 @@ def render_entry(entry: BoqwizEntry, language: str) -> dict:
         "pos": "unknown",
         "simple_pos": "affix" if "-" in entry.name else entry.simple_pos,
         "tags": [],
+        "html_link": render_link(entry.name, entry.simple_pos, entry.tags, language),
     }
     if entry.simple_pos == "v":
         if "is" in entry.tags:
@@ -271,27 +290,27 @@ def render_entry(entry: BoqwizEntry, language: str) -> dict:
         if str(i) in entry.tags:
             ans["homonym"] = i
 
-    ans["definition"] = fix_links(get_unless_translated(entry.definition, language))
+    ans["definition"] = fix_links(get_unless_translated(entry.definition, language), language)
 
     if language != "en":
-        ans["english"] = fix_links(entry.definition["en"])
+        ans["english"] = fix_links(entry.definition["en"], language)
 
     if entry.notes:
-        ans["notes"] = fix_links(get_unless_translated(entry.notes, language))
+        ans["notes"] = fix_links(get_unless_translated(entry.notes, language), language)
     
     if entry.examples:
-        ans["examples"] = fix_links(get_unless_translated(entry.examples, language))
+        ans["examples"] = fix_links(get_unless_translated(entry.examples, language), language)
             
     if entry.components:
-        ans["components"] = fix_links(entry.components)
+        ans["components"] = fix_links(entry.components, language)
     
     if entry.simple_pos == "n":
         if "inhps" in entry.tags and entry.components:
-            ans["inflections"] = locales.locale_map[language]["plural"] + ": " + fix_links(entry.components)
+            ans["inflections"] = locales.locale_map[language]["plural"] + ": " + fix_links(entry.components, language)
             del ans["components"]
 
         elif "inhpl" in entry.tags and entry.components:
-            ans["inflections"] = locales.locale_map[language]["singular"] + ": " + fix_links(entry.components)
+            ans["inflections"] = locales.locale_map[language]["singular"] + ": " + fix_links(entry.components, language)
             del ans["components"]
         
         elif "suff" not in entry.tags and "inhpl" not in entry.tags:
@@ -303,8 +322,16 @@ def render_entry(entry: BoqwizEntry, language: str) -> dict:
 
     for field in ["synonyms", "antonyms", "see_also", "source", "hidden_notes"]:
         if getattr(entry, field):
-            ans[field] = fix_links(getattr(entry, field))
+            ans[field] = fix_links(getattr(entry, field), language)
     
+    if include_derivs:
+        derived = []
+        for entry2 in derived_index[entry.id]:
+            derived.append(render_entry(entry2, language, include_derivs=False))
+        
+        if derived:
+            ans["derived"] = derived
+
     return ans
 
 def get_unless_translated(d, l):
@@ -317,7 +344,23 @@ def get_unless_translated(d, l):
     else:
         return d[l]
 
-def fix_links(text: str) -> str:
+def get_id(link_text: str, link_type: str, tags: Collection[str]) -> str:
+    homonyms = [tag for tag in tags if re.fullmatch(r"\d+", tag)]
+    return link_text + ":" + ":".join([link_type] + homonyms)
+
+def get_links(text: str) -> List[str]:
+    ids = []
+    while "{" in text:
+        i = text.index("{")
+        text = text[i+1:]
+        i = text.index("}")
+        link_text, link_type, tags, _, _ = parse_link(text[:i])
+        ids.append(get_id(link_text, link_type, tags))
+        text = text[i+1:]
+    
+    return ids
+
+def fix_links(text: str, lang: str) -> str:
     ans = ""
     while "{" in text:
         i = text.index("{")
@@ -325,23 +368,18 @@ def fix_links(text: str) -> str:
         text = text[i+1:]
         i = text.index("}")
         link = text[:i]
-        ans += fix_link(link)
+        ans += fix_link(link, lang)
         text = text[i+1:]
     
     ans += text
     return ans.replace("\n", "<br>")
 
-def fix_link(link: str) -> str:
-    parts1 = link.split("@@")
-    parts2 = parts1[0].split(":")
-    link_text = parts2[0]
-    link_text2 = link_text
-    link_type = parts2[1] if len(parts2) > 1 else ""
-    tags = parts2[2].split(",") if len(parts2) > 2 else []
+def fix_link(link: str, lang: str) -> str:
+    link_text, link_type, tags, parts1, parts2 = parse_link(link)
     
     if "nolink" in tags:
         style = "affix" if "-" in link_text else link_type if link_type else "sen"
-        return f"<b class=\"pos-{style}\" okrand>" + link_text2 + "</b>"
+        return f"<b class=\"pos-{style}\" okrand>" + link_text + "</b>"
     
     elif link_type == "src":
         return "<i>" + link_text + "</i>"
@@ -352,25 +390,43 @@ def fix_link(link: str) -> str:
     
     elif len(parts1) == 2:
         style = link_type if link_type else "sen"
-        return f"<a href=\"?q={link_text.replace(' ', '+')}\" class=\"pos-{style}\" okrand>{link_text2}</a>"
+        return f"<a href=\"?q={link_text.replace(' ', '+')}\" class=\"pos-{style}\" okrand>{link_text}</a>"
     
     else:
-        hyp = "<sup>?</sup>" if "hyp" in tags else "*" if "extcan" in tags else ""
-        hom = ""
-        hom_pos = ""
-        for i in range(1, 10):
-            if str(i) in tags:
-                hom = f"<sup>{i}</sup>"
-                hom_pos = f"+pos:{i}"
-                break
-            
-            elif f"{i}h" in tags:
-                hom_pos = f"+pos:{i}"
-                break
+        return render_link(link_text, link_type, tags, lang)
 
-        pos = "+pos:"+link_type if link_type and link_type != "sen" else ""
-        style = "affix" if "-" in link_text else link_type if link_type else "sen"
-        return f"<a href=\"?q=tlh:&quot;^{link_text.replace(' ', '+')}$&quot;{pos}{hom_pos}\" class=\"pos-{style}\">{hyp}<span okrand>{link_text2}</span>{hom}</a>"
+def parse_link(link: str):
+    parts1 = link.split("@@")
+    parts2 = parts1[0].split(":")
+    link_text = parts2[0]
+    link_type = parts2[1] if len(parts2) > 1 else ""
+    tags = parts2[2].split(",") if len(parts2) > 2 else []
+    return link_text, link_type, tags, parts1, parts2
+
+def render_link(link_text: str, link_type: str, tags: Collection[str], lang: str):
+    hyp = "<sup>?</sup>" if "hyp" in tags else "*" if "extcan" in tags else ""
+    hom = ""
+    hom_pos = ""
+    for i in range(1, 10):
+        if str(i) in tags:
+            hom = f"<sup>{i}</sup>"
+            hom_pos = f"+pos:{i}"
+            break
+        
+        elif f"{i}h" in tags:
+            hom_pos = f"+pos:{i}"
+            break
+
+    pos = "+pos:"+link_type if link_type and link_type != "sen" else ""
+    style = "affix" if "-" in link_text else link_type if link_type else "sen"
+
+    defn = ""
+    word_id = get_id(link_text, link_type, tags)
+    if entry := dictionary.entries.get(word_id, None):
+        defn = get_unless_translated(entry.definition, lang)
+        defn = f" title=\"{defn}\""
+    
+    return f"<a href=\"?q=tlh:&quot;^{link_text.replace(' ', '+')}$&quot;{pos}{hom_pos}\" class=\"pos-{style}\"{defn}>{hyp}<span okrand>{link_text}</span>{hom}</a>"
 
 def fix_xifan(query: str) -> str:
     query = re.sub(r"i", "I", query)
@@ -382,3 +438,5 @@ def fix_xifan(query: str) -> str:
     query = re.sub(r"c(?!h)", "ch", query)
     query = re.sub(r"(?<!n)g(?!h)", "gh", query)
     return query
+
+make_derived_index()

@@ -39,6 +39,7 @@ FI = {
 
     "examples": "Esimerkkejä",
     "components": "Osat",
+    "derived": "Johdetut sanat",
     "synonyms": "Synonyymi",
     "antonyms": "Antonyymi",
     "see_also": "Katso myös",
@@ -93,6 +94,7 @@ EN = {
 
     "examples": "Examples",
     "components": "Components",
+    "derived": "Derived words",
     "synonyms": "Synonyms",
     "antonyms": "Antonyms",
     "see_also": "See also",
@@ -147,6 +149,7 @@ DE = {
 
     "examples": "Beispiele",
     "components": "Komponenten",
+    "derived": "Wortbildungen",
     "synonyms": "Synonyme",
     "antonyms": "Antonyme",
     "see_also": "Siehe auch",

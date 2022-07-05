@@ -49,6 +49,16 @@ async def get_dictionary(request: web.Request):
         "bare": bare
     }
 
+@routes.get("/api/dictionary")
+async def api_dictionary(request: web.Request):
+    lang = request.match_info.get("lang", "en")
+    query = request.query.get("q", "")
+    return web.json_response({
+        "input": query,
+        "result": dictionary.dictionary_query(query, lang),
+        "boqwiz_version": dictionary.dictionary.version
+    })
+
 @routes.get("/api/analyze")
 async def api_analyze(request):
     if "word" not in request.query:
