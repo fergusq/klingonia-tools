@@ -6,7 +6,7 @@
         <td>
             <details>
                 <summary>
-                    <i>({{ lang[entry.pos] }}{% for tag in entry.tags %}, {{ lang[tag] }}{% endfor %})</i>
+                    <i>({{ entry.pos }}{% for tag in entry.tags %}, {{ tag }}{% endfor %})</i>
                     {{ entry.definition | safe }}
                 </summary>
     

@@ -67,6 +67,7 @@ class DictionaryQuery:
     def __init__(self, query: str, language: str):
         self.query = query
         self.language = language
+        self.locale_strings = locales.locale_map[language]
     
     def execute_query(self):
         """
@@ -225,72 +226,76 @@ class DictionaryQuery:
             "name": entry.name,
             "url_name": entry.name.replace(" ", "+"),
             "wiki_name": get_wiki_name(entry.name),
-            "pos": "unknown",
-            "simple_pos": "affix" if "-" in entry.name else entry.simple_pos,
+            "graphemes": yajwiz.split_to_letters(entry.name),
+            "syllables": yajwiz.split_to_syllables(entry.name),
+            "morphemes": list(map(list, yajwiz.split_to_morphemes(entry.name))),
+            "pos": self.locale_strings["unknown"],
+            "simple_pos": "affix" if entry.name.startswith("-") or entry.name.endswith("-") or entry.name == "0" else entry.simple_pos,
+            "boqwi_tags": list(entry.tags),
             "tags": [],
             "html_link": self.render_link(entry.name, entry.simple_pos, entry.tags),
         }
         if entry.simple_pos == "v":
             if "is" in entry.tags:
-                ans["pos"] = "adjective"
+                ans["pos"] = self.locale_strings["adjective"]
             
             elif "t_c" in entry.tags:
-                ans["pos"] = "transitive verb"
+                ans["pos"] = self.locale_strings["transitive verb"]
             
             elif "t" in entry.tags:
-                ans["pos"] = "possibly transitive verb"
+                ans["pos"] = self.locale_strings["possibly transitive verb"]
             
             elif "i_c" in entry.tags:
-                ans["pos"] = "intransitive verb"
+                ans["pos"] = self.locale_strings["intransitive verb"]
             
             elif "i" in entry.tags:
-                ans["pos"] = "possibly intransitive verb"
+                ans["pos"] = self.locale_strings["possibly intransitive verb"]
             
             elif "pref" in entry.tags:
-                ans["pos"] = "verb prefix"
+                ans["pos"] = self.locale_strings["verb prefix"]
             
             elif "suff" in entry.tags:
-                ans["pos"] = "verb suffix"
+                ans["pos"] = self.locale_strings["verb suffix"]
             
             else:
-                ans["pos"] = "verb"
+                ans["pos"] = self.locale_strings["verb"]
         
         elif entry.simple_pos == "n":
             if "suff" in entry.tags:
-                ans["pos"] = "noun suffix"
+                ans["pos"] = self.locale_strings["noun suffix"]
             
             else:
-                ans["pos"] = "noun"
+                ans["pos"] = self.locale_strings["noun"]
         
         elif entry.simple_pos == "ques":
-            ans["pos"] = "question word"
+            ans["pos"] = self.locale_strings["question word"]
         
         elif entry.simple_pos == "adv":
-            ans["pos"] = "adverb"
+            ans["pos"] = self.locale_strings["adverb"]
         
         elif entry.simple_pos == "conj":
-            ans["pos"] = "conjunction"
+            ans["pos"] = self.locale_strings["conjunction"]
         
         elif entry.simple_pos == "excl":
-            ans["pos"] = "exclamation"
+            ans["pos"] = self.locale_strings["exclamation"]
         
         elif entry.simple_pos == "sen":
-            ans["pos"] = "sentence"
+            ans["pos"] = self.locale_strings["sentence"]
         
         if "slang" in entry.tags:
-            ans["tags"].append("slang")
+            ans["tags"].append(self.locale_strings["slang"])
         
         if "reg" in entry.tags:
-            ans["tags"].append("regional")
+            ans["tags"].append(self.locale_strings["regional"])
         
         if "archaic" in entry.tags:
-            ans["tags"].append("archaic")
+            ans["tags"].append(self.locale_strings["archaic"])
         
         if "hyp" in entry.tags:
-            ans["tags"].append("hypothetical")
+            ans["tags"].append(self.locale_strings["hypothetical"])
         
         if "extcan" in entry.tags:
-            ans["tags"].append("extracanonical")
+            ans["tags"].append(self.locale_strings["extracanonical"])
         
         for i in range(1, 10):
             if str(i) in entry.tags:
@@ -312,11 +317,11 @@ class DictionaryQuery:
         
         if entry.simple_pos == "n":
             if "inhps" in entry.tags and entry.components:
-                ans["inflections"] = locales.locale_map[self.language]["plural"] + ": " + self.fix_links(entry.components)
+                ans["inflections"] = self.locale_strings["plural"] + ": " + self.fix_links(entry.components)
                 del ans["components"]
 
             elif "inhpl" in entry.tags and entry.components:
-                ans["inflections"] = locales.locale_map[self.language]["singular"] + ": " + self.fix_links(entry.components)
+                ans["inflections"] = self.locale_strings["singular"] + ": " + self.fix_links(entry.components)
                 del ans["components"]
             
             elif "suff" not in entry.tags and "inhpl" not in entry.tags:
