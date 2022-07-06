@@ -12,6 +12,7 @@ FI = {
     "no_errors": "Virheitä ei löytynyt.",
     "errors_marked": "Löydetyt virheet on merkitty alla olevaan tekstiin.",
 
+    "unknown": "tuntematon",
     "adjective": "adjektiivi",
     "transitive verb": "tr. verbi",
     "possibly transitive verb": "todn. tr. verbi",
@@ -32,7 +33,7 @@ FI = {
     "singular": "yksikkö",
 
     "slang": "slangia",
-    "regional": "alueel.",
+    "regional": "alueell.",
     "archaic": "vanh.",
     "hypothetical": "hyp.",
     "extracanonical": "ekstrakan.",
@@ -67,6 +68,7 @@ EN = {
     "no_errors": "No errors were found.",
     "errors_marked": "Detected errors are marked on the text below.",
 
+    "unknown": "unknown",
     "adjective": "stative verb",
     "transitive verb": "tr. verb",
     "possibly transitive verb": "possibly tr. verb",
@@ -122,6 +124,7 @@ DE = {
     "no_errors": "Es wurden keine Fehler gefunden.",
     "errors_marked": "Fehler wurden im unten eingefügten Text markiert.",
 
+    "tuntematon": "unbekannt",
     "adjective": "Zustandsverb",
     "transitive verb": "trans. Verb",
     "possibly transitive verb": "mögl. trans. Verb",
