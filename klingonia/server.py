@@ -51,7 +51,7 @@ async def get_dictionary(request: web.Request):
 
 @routes.get("/api/dictionary")
 async def api_dictionary(request: web.Request):
-    lang = request.match_info.get("lang", "en")
+    lang = request.query.get("lang", "en")
     query = request.query.get("q", "")
     return web.json_response({
         "input": query,
