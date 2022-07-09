@@ -1,7 +1,7 @@
 import logging
 import re
 import sys
-from typing import Collection, DefaultDict, Dict, Callable, Any, List, Set
+from typing import Collection, DefaultDict, Dict, Callable, Any, List, Literal, Set
 
 import yajwiz
 from yajwiz import BoqwizEntry
@@ -64,10 +64,12 @@ def get_wiki_name(name: str) -> str:
     return ans.capitalize()
 
 class DictionaryQuery:
-    def __init__(self, query: str, language: str):
+    def __init__(self, query: str, language: str, link_format: Literal["html", "latex"] = "html"):
         self.query = query
         self.language = language
         self.locale_strings = locales.locale_map[language]
+        self.link_format = link_format
+        self.link_renderer = LinkRenderer(self) if link_format == "html" else LinkRendererLatex(self)
     
     def execute_query(self):
         """
@@ -233,7 +235,7 @@ class DictionaryQuery:
             "simple_pos": "affix" if entry.name.startswith("-") or entry.name.endswith("-") or entry.name == "0" else entry.simple_pos,
             "boqwi_tags": list(entry.tags),
             "tags": [],
-            "html_link": self.render_link(entry.name, entry.simple_pos, entry.tags),
+            "rendered_link": self.link_renderer.render_link(entry.name, entry.simple_pos, entry.tags),
         }
         if entry.simple_pos == "v":
             if "is" in entry.tags:
@@ -363,12 +365,16 @@ class DictionaryQuery:
             text = text[i+1:]
             i = text.index("}")
             link = text[:i]
-            ans += self.fix_link(link)
+            ans += self.link_renderer.fix_link(link)
             text = text[i+1:]
         
         ans += text
         return ans.replace("\n", "<br>")
 
+class LinkRenderer:
+    def __init__(self, query: DictionaryQuery):
+        self.query = query
+    
     def fix_link(self, link: str) -> str:
         link_text, link_type, tags, parts1, parts2 = parse_link(link)
         
@@ -410,19 +416,57 @@ class DictionaryQuery:
         defn = ""
         word_id = get_id(link_text, link_type, tags)
         if entry := dictionary.entries.get(word_id, None):
-            defn = self.get_unless_translated(entry.definition)
+            defn = self.query.get_unless_translated(entry.definition)
             defn = f" title=\"{defn}\""
         
         return f"<a href=\"?q=tlh:&quot;^{link_text.replace(' ', '+')}$&quot;{pos}{hom_pos}\" class=\"pos-{style}\"{defn}>{hyp}<span okrand>{link_text}</span>{hom}</a>"
 
-def dictionary_query(query: str, lang: str):
-    return DictionaryQuery(query=query, language=lang).execute_query()
+class LinkRendererLatex(LinkRenderer):
+    def fix_link(self, link: str) -> str:
+        link_text, link_type, tags, parts1, parts2 = parse_link(link)
+        
+        if "nolink" in tags:
+            style = "affix" if "-" in link_text else link_type if link_type else "sen"
+            return f"<b class=\"pos-{style}\" okrand>" + link_text + "</b>"
+        
+        elif link_type == "src":
+            return "\\klingonref[src]{" + link_text + "}"
+        
+        elif link_type == "url":
+            addr = parts2[2]
+            return "\\klingonref[url]{" + link_text + "}"
+        
+        elif len(parts1) == 2:
+            style = link_type if link_type else "sen"
+            return "\\klingonref[" + style + "]{\\klingontext{" + link_text + "}}"
+        
+        else:
+            return self.render_link(link_text, link_type, tags)
+
+    def render_link(self, link_text: str, link_type: str, tags: Collection[str]):
+        hyp = "$^?$" if "hyp" in tags else "*" if "extcan" in tags else ""
+        hom = ""
+        for i in range(1, 10):
+            if str(i) in tags:
+                hom = f"$^{i}$"
+                break
+            
+            elif f"{i}h" in tags:
+                # hidden homonym number: not shown
+                break
+
+        style = "affix" if "-" in link_text else link_type if link_type else "sen"
+        
+        return "\\klingonref[%s]{%s\\klingontext{%s}%s}" % (style, hyp, link_text, hom)
+
+def dictionary_query(query: str, lang: str, link_format: Literal["html", "latex"]):
+    return DictionaryQuery(query=query, language=lang, link_format=link_format).execute_query()
 
 def any_word_starts_with(word: str, words: List[str]):
     return any([part.lower().startswith(word.lower()) for part in words])
 
 def get_id(link_text: str, link_type: str, tags: Collection[str]) -> str:
-    homonyms = [tag for tag in tags if re.fullmatch(r"\d+", tag)]
+    homonyms = [tag.strip("h") for tag in tags if re.fullmatch(r"\d+h?", tag)]
     return link_text + ":" + ":".join([link_type] + homonyms)
 
 def get_links(text: str) -> List[str]:

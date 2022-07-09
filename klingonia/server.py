@@ -44,7 +44,7 @@ async def get_dictionary(request: web.Request):
         "lang": locales.locale_map[lang],
         "path": "/dictionary",
         "input": query,
-        "result": dictionary.dictionary_query(query, lang),
+        "result": dictionary.dictionary_query(query, lang, link_format="html"),
         "boqwiz_version": dictionary.dictionary.version,
         "bare": bare
     }
@@ -53,9 +53,12 @@ async def get_dictionary(request: web.Request):
 async def api_dictionary(request: web.Request):
     lang = request.query.get("lang", "en")
     query = request.query.get("q", "")
+    link_format = request.query.get("link_format", "html")
+    if link_format != "html" and link_format != "latex":
+        raise web.HTTPBadRequest(text="link_format must be either 'html' or 'latex'")
     return web.json_response({
         "input": query,
-        "result": dictionary.dictionary_query(query, lang),
+        "result": dictionary.dictionary_query(query, lang, link_format),
         "boqwiz_version": dictionary.dictionary.version
     })
 
