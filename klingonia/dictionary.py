@@ -424,10 +424,13 @@ class LinkRenderer:
 class LinkRendererLatex(LinkRenderer):
     def fix_link(self, link: str) -> str:
         link_text, link_type, tags, parts1, parts2 = parse_link(link)
+
+        if link_type not in ["src", "url"]:
+            link_text = " ".join("\\mbox{" + word + "}" for word in link_text.split(" "))
         
         if "nolink" in tags:
             style = "affix" if "-" in link_text else link_type if link_type else "sen"
-            return f"<b class=\"pos-{style}\" okrand>" + link_text + "</b>"
+            return "\\klingonref[" + style + "]{\\klingontext{" + link_text + "}}"
         
         elif link_type == "src":
             return "\\klingonref[src]{" + link_text + "}"
@@ -441,9 +444,13 @@ class LinkRendererLatex(LinkRenderer):
             return "\\klingonref[" + style + "]{\\klingontext{" + link_text + "}}"
         
         else:
-            return self.render_link(link_text, link_type, tags)
-
+            return self._render_link(link_text, link_type, tags)
+        
     def render_link(self, link_text: str, link_type: str, tags: Collection[str]):
+        link_text = " ".join("\\mbox{" + word + "}" for word in link_text.split(" "))
+        return self._render_link(link_text, link_type, tags)
+
+    def _render_link(self, link_text: str, link_type: str, tags: Collection[str]):
         hyp = "$^?$" if "hyp" in tags else "*" if "extcan" in tags else ""
         hom = ""
         for i in range(1, 10):
