@@ -23,7 +23,7 @@
                 {% endif %}
     
                 {% if entry.derived is defined %}
-                <p><b>{{lang.derived}}:</b> {% for deriv in entry.derived %}{{ deriv.html_link | safe }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
+                <p><b>{{lang.derived}}:</b> {% for deriv in entry.derived %}{{ deriv.rendered_link | safe }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
                 {% endif %}
     
                 {% if entry.synonyms is defined %}
