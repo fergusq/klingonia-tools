@@ -2,7 +2,7 @@
     {% for entry in result %}
 
     <tr>
-        <th class=pos-{{entry.simple_pos}}>{% if "hypothetical" in entry.tags %}<sup>?</sup>{% endif %}{% if "extracanonical" in entry.tags %}*{% endif %}<span okrand>{{ entry.name }}</span>{% if entry.homonym is defined %}<sup>{{ entry.homonym }}</sup>{% endif %}</th>
+        <th class=pos-{{entry.simple_pos}}>{% if "hyp" in entry.boqwi_tags %}<sup>?</sup>{% endif %}{% if "extcan" in entry.boqwi_tags %}*{% endif %}<span okrand>{{ entry.name }}</span>{% if entry.homonym is defined %}<sup>{{ entry.homonym }}</sup>{% endif %}</th>
         <td>
             <details>
                 <summary>
